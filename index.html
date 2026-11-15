@@ -13,7 +13,7 @@
     height: 100dvh;
     padding-bottom: 34px;
     padding-bottom: max(34px, calc(10px + env(safe-area-inset-bottom)));
-    background: #06110c;
+    background: #0b3d33;
     color: #dfe7e2;
     font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     overflow: hidden;
@@ -85,7 +85,7 @@
   #settingsPanel {
     position: absolute; z-index: 21; top: calc(8px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
     width: 300px; max-height: 88%; overflow-y: auto;
-    background: rgba(5,14,10,0.96); border: 1px solid rgba(25,240,160,0.5); border-radius: 12px;
+    background: rgba(7,38,30,0.96); border: 1px solid rgba(25,240,160,0.5); border-radius: 12px;
     padding: 12px 14px; display: none;
   }
   #settingsPanel.open { display: block; }
@@ -110,7 +110,7 @@
   #tunePanel {
     position: absolute; z-index: 20; top: calc(8px + env(safe-area-inset-top)); left: 8px;
     width: 264px; max-height: 86%; overflow-y: auto;
-    background: rgba(5,14,10,0.95); border: 1px solid rgba(25,240,160,0.5); border-radius: 12px;
+    background: rgba(7,38,30,0.95); border: 1px solid rgba(25,240,160,0.5); border-radius: 12px;
     padding: 12px 14px; display: none;
   }
   #tunePanel.open { display: block; }
@@ -130,7 +130,7 @@
   .screen {
     position: absolute; inset: 0; z-index: 15; display: flex; flex-direction: column;
     align-items: center; justify-content: center; text-align: center;
-    background: rgba(4,12,8,0.78); padding: 20px;
+    background: rgba(6,40,32,0.72); padding: 20px;
   }
   .screen h1 { margin: 0; font-size: 52px; font-weight: 900; letter-spacing: 3px; color: #eafff5; }
   .screen h1 .jade { color: #19f0a0; }
@@ -155,7 +155,7 @@
   #pausedChip {
     position: absolute; z-index: 9; top: 40%; left: 50%; transform: translate(-50%,-50%);
     font-size: 22px; font-weight: 900; letter-spacing: 3px; color: #eafff5;
-    background: rgba(5,14,10,0.8); padding: 10px 22px; border-radius: 10px; display: none; pointer-events: none;
+    background: rgba(7,38,30,0.8); padding: 10px 22px; border-radius: 10px; display: none; pointer-events: none;
   }
 </style>
 </head>
@@ -247,7 +247,7 @@
 
 /* ---------------- tuning ---------------- */
 var TUNE_DEFAULTS = {
-  gravity: 22,        // m/s^2, Sasha's snappy arc
+  gravity: 18,        // m/s^2, George's call (Stage B2): soar higher, float longer
   pitchRate: 7.4,     // rad/s at full input, full flip in ~0.85s
   rollRate: 7.4,      // rad/s at full input
   twistRate: 6.0,     // rad/s for corkscrew yaw
@@ -332,20 +332,23 @@ function yawQuat(yaw) {
 }
 
 /* ---------------- arena: analytic surfaces ----------------
-   Plan view: x east, z south, north is -z. Room is 120x120, walls at |x|,|z| = 60.
+   Plan view: x east, z south, north is -z. Room is 180x180, walls at |x|,|z| = 90
+   (Stage B2: the room grew from 120; layout spread with it, heights unchanged).
    The terrain layer is one continuous heightfield (floor, bowl, Crown, feeders,
    corner ramps, quarter pipes). Elevated structures (rim, deck, rail) stack on top. */
 var TAN32 = Math.tan(32 * Math.PI / 180), TAN38 = Math.tan(38 * Math.PI / 180);
-var BOWL = { x: -36, z: 36, r: 11, depth: 2.5 };
-var RAIL = { x1: -50, z1: 29, x2: -29, z2: 50, h: 5, half: 0.7, under: 4.8 };
+var WALL = 88.6;      // car-centre limit: the room wall at 90 minus the car's half width
+var RIM_EDGE = 83;    // inner edge of the rim band (rim road runs 83..90 at h=6)
+var BOWL = { x: -54, z: 54, r: 16, depth: 2.5 };
+var RAIL = { x1: -75, z1: 43.5, x2: -43.5, z2: 75, h: 5, half: 0.7, under: 4.8 };
 
 var FEEDERS = [
-  { x0: -3,  x1: 3,   z0: 20,   z1: 30,   dir: 'N', h: 2.2 },
-  { x0: 24,  x1: 34,  z0: -3,   z1: 3,    dir: 'W', h: 3.0 },
-  { x0: -34, x1: -24, z0: -3,   z1: 3,    dir: 'E', h: 3.0 },
-  { x0: -3,  x1: 3,   z0: -30,  z1: -20,  dir: 'S', h: 2.6 },
-  { x0: 30,  x1: 38,  z0: 24,   z1: 32,   dir: 'N', h: 1.8 },
-  { x0: -38, x1: -30, z0: -32,  z1: -24,  dir: 'S', h: 1.8 }
+  { x0: -4.5, x1: 4.5,  z0: 30,   z1: 45,   dir: 'N', h: 2.2 },
+  { x0: 36,   x1: 51,   z0: -4.5, z1: 4.5,  dir: 'W', h: 3.0 },
+  { x0: -51,  x1: -36,  z0: -4.5, z1: 4.5,  dir: 'E', h: 3.0 },
+  { x0: -4.5, x1: 4.5,  z0: -45,  z1: -30,  dir: 'S', h: 2.6 },
+  { x0: 45,   x1: 57,   z0: 36,   z1: 48,   dir: 'N', h: 1.8 },
+  { x0: -57,  x1: -45,  z0: -48,  z1: -36,  dir: 'S', h: 1.8 }
 ];
 function surf(h, gx, gz, zone, under) {
   // gx, gz are dh/dx, dh/dz; surface normal is normalize(-gx, 1, -gz)
@@ -361,11 +364,11 @@ function terrainGrad(x, z) {
   var bdx = x - BOWL.x, bdz = z - BOWL.z, bd = Math.sqrt(bdx*bdx + bdz*bdz);
   if (bd < BOWL.r) {
     var prof = -BOWL.depth * (0.5 + 0.5 * Math.cos(Math.PI * bd / BOWL.r));
-    var dprof = 1.25 * (Math.PI / BOWL.r) * Math.sin(Math.PI * bd / BOWL.r); // dh per meter outward
+    var dprof = (BOWL.depth / 2) * (Math.PI / BOWL.r) * Math.sin(Math.PI * bd / BOWL.r); // dh per meter outward
     var ogx = 0, ogz = 0;
     if (bd > 0.001) { ogx = dprof * bdx / bd; ogz = dprof * bdz / bd; }
     var lat = (bdx + bdz) / Math.SQRT2; // signed distance from the spine line
-    var fall = Math.max(0, 1 - (bd / 10.5) * (bd / 10.5));
+    var fall = Math.max(0, 1 - (bd / (BOWL.r - 0.5)) * (bd / (BOWL.r - 0.5)));
     var spine = 1.3 * Math.exp(-(lat / 1.6) * (lat / 1.6)) * fall;
     var dSpine = 1.3 * Math.exp(-(lat / 1.6) * (lat / 1.6)) * (-2 * lat / 2.56) * fall / Math.SQRT2;
     h = prof + spine; gx = ogx + dSpine; gz = ogz + dSpine; zone = 'bowl';
@@ -396,20 +399,21 @@ function terrainGrad(x, z) {
       if (hf > h) { h = hf; gx = dhx; gz = dhz; zone = 'feeder'; }
     }
   }
-  // Corner ramps: NE rises east to the rim corner, SW rises west.
+  // Corner ramps: NE rises east to the rim corner, SW rises west. Each meets
+  // the rim band exactly at its inner edge (x = +/-83) at full height.
   // Gated with the rim (Heat Ladder H1): the rises simply are not there.
-  if (!GATES.rim && z >= -53 && z <= -46 && x >= 30 && x <= 53) {
-    var hr1 = (x - 30) / 23 * 6;
-    if (hr1 > h) { h = hr1; gx = 6 / 23; gz = 0; zone = 'ramp'; }
+  if (!GATES.rim && z >= -80 && z <= -69 && x >= 45 && x <= 83) {
+    var hr1 = (x - 45) / 38 * 6;
+    if (hr1 > h) { h = hr1; gx = 6 / 38; gz = 0; zone = 'ramp'; }
   }
-  if (!GATES.rim && z >= 46 && z <= 53 && x >= -53 && x <= -30) {
-    var hr2 = (-30 - x) / 23 * 6;
-    if (hr2 > h) { h = hr2; gx = -6 / 23; gz = 0; zone = 'ramp'; }
+  if (!GATES.rim && z >= 69 && z <= 80 && x >= -83 && x <= -45) {
+    var hr2 = (-45 - x) / 38 * 6;
+    if (hr2 > h) { h = hr2; gx = -6 / 38; gz = 0; zone = 'ramp'; }
   }
   // Quarter pipes on the east and west inner walls, feeding the rim (also rim-gated)
-  if (!GATES.rim && Math.abs(z) <= 38) {
-    if (x >= 47 && x <= 53) { var u1 = (x - 47) / 6, hq1 = 6 * u1 * u1; if (hq1 > h) { h = hq1; gx = 2 * u1; gz = 0; zone = 'qp'; } }
-    if (x <= -47 && x >= -53) { var u2 = (-x - 47) / 6, hq2 = 6 * u2 * u2; if (hq2 > h) { h = hq2; gx = -2 * u2; gz = 0; zone = 'qp'; } }
+  if (!GATES.rim && Math.abs(z) <= 57) {
+    if (x >= 77 && x <= 83) { var u1 = (x - 77) / 6, hq1 = 6 * u1 * u1; if (hq1 > h) { h = hq1; gx = 2 * u1; gz = 0; zone = 'qp'; } }
+    if (x <= -77 && x >= -83) { var u2 = (-x - 77) / 6, hq2 = 6 * u2 * u2; if (hq2 > h) { h = hq2; gx = -2 * u2; gz = 0; zone = 'qp'; } }
   }
   return { h: h, gx: gx, gz: gz, zone: zone };
 }
@@ -421,11 +425,11 @@ function terrainAt(x, z) {
 function surfacesAt(x, z) {
   var list = [terrainAt(x, z)];
   var ax = Math.abs(x), az = Math.abs(z);
-  if (!GATES.rim && Math.max(ax, az) >= 53 && ax <= 60 && az <= 60) { var rm = flatSurf(6, 'rim', 0); rm.stacked = true; list.push(rm); }
-  if (z >= -60 && z <= -53) {
-    if (!GATES.deck && x >= 44 && x <= 54) { var dr1 = surf(6 + (54 - x) * 0.4, -0.4, 0, 'deckramp', 5.9); dr1.stacked = true; list.push(dr1); }
-    else if (!GATES.deck && x <= -44 && x >= -54) { var dr2 = surf(6 + (x + 54) * 0.4, 0.4, 0, 'deckramp', 5.9); dr2.stacked = true; list.push(dr2); }
-    if ((x >= 4.5 && x <= 44) || (x >= -44 && x <= -4.5)) { var dk = flatSurf(10, 'deck', 9); dk.stacked = true; list.push(dk); }
+  if (!GATES.rim && Math.max(ax, az) >= RIM_EDGE && ax <= 90 && az <= 90) { var rm = flatSurf(6, 'rim', 0); rm.stacked = true; list.push(rm); }
+  if (z >= -90 && z <= -83) {
+    if (!GATES.deck && x >= 71 && x <= 81) { var dr1 = surf(6 + (81 - x) * 0.4, -0.4, 0, 'deckramp', 5.9); dr1.stacked = true; list.push(dr1); }
+    else if (!GATES.deck && x <= -71 && x >= -81) { var dr2 = surf(6 + (x + 81) * 0.4, 0.4, 0, 'deckramp', 5.9); dr2.stacked = true; list.push(dr2); }
+    if ((x >= 4.5 && x <= 71) || (x >= -71 && x <= -4.5)) { var dk = flatSurf(10, 'deck', 9); dk.stacked = true; list.push(dk); }
   }
   // The Rail: beam across the bowl corner
   var dx = RAIL.x2 - RAIL.x1, dz = RAIL.z2 - RAIL.z1;
@@ -460,40 +464,40 @@ function launchFromSurface(x, z, speed, heading) {
    mid-edges), Structure 7 (four Crown face lips, two deck ends, the Vault
    under the north deck overhang), Flight 5 (Crown apex, Toll Gap, three Rail). */
 var COINS = [
-  { x: 0,     y: 0.9,  z: 34,    tier: 'ground'    },
-  { x: -25,   y: 0.9,  z: 36,    tier: 'ground'    },
-  { x: 0,     y: 3.0,  z: 21,    tier: 'ground'    },
-  { x: 24.5,  y: 3.9,  z: 0,     tier: 'ground'    },
-  { x: -24.5, y: 3.9,  z: 0,     tier: 'ground'    },
-  { x: 0,     y: 3.5,  z: -20.5, tier: 'ground'    },
-  { x: 56.5,  y: 6.9,  z: -56.5, tier: 'rim'       },
-  { x: -56.5, y: 6.9,  z: 56.5,  tier: 'rim'       },
-  { x: 56.5,  y: 6.9,  z: 0,     tier: 'rim'       },
-  { x: -56.5, y: 6.9,  z: -56.5, tier: 'rim'       },
-  { x: 56.5,  y: 6.9,  z: 56.5,  tier: 'rim'       },
-  { x: -56.5, y: 6.9,  z: 0,     tier: 'rim'       },
+  { x: 0,     y: 0.9,  z: 55,    tier: 'ground'    },
+  { x: -38,   y: 0.9,  z: 54,    tier: 'ground'    },
+  { x: 0,     y: 3.0,  z: 31,    tier: 'ground'    },
+  { x: 36.5,  y: 3.9,  z: 0,     tier: 'ground'    },
+  { x: -36.5, y: 3.9,  z: 0,     tier: 'ground'    },
+  { x: 0,     y: 3.5,  z: -30.5, tier: 'ground'    },
+  { x: 86.5,  y: 6.9,  z: -86.5, tier: 'rim'       },
+  { x: -86.5, y: 6.9,  z: 86.5,  tier: 'rim'       },
+  { x: 86.5,  y: 6.9,  z: 0,     tier: 'rim'       },
+  { x: -86.5, y: 6.9,  z: -86.5, tier: 'rim'       },
+  { x: 86.5,  y: 6.9,  z: 86.5,  tier: 'rim'       },
+  { x: -86.5, y: 6.9,  z: 0,     tier: 'rim'       },
   { x: 0,     y: 7.9,  z: 2,     tier: 'structure' },
   { x: 0,     y: 7.9,  z: -2,    tier: 'structure' },
   { x: 2,     y: 7.9,  z: 0,     tier: 'structure' },
   { x: -2,    y: 7.9,  z: 0,     tier: 'structure' },
-  { x: 44,    y: 10.9, z: -56.5, tier: 'structure' },
-  { x: -44,   y: 10.9, z: -56.5, tier: 'structure' },
-  { x: -24,   y: 6.9,  z: -56.5, tier: 'structure' },
+  { x: 70,    y: 10.9, z: -86.5, tier: 'structure' },
+  { x: -70,   y: 10.9, z: -86.5, tier: 'structure' },
+  { x: -36,   y: 6.9,  z: -86.5, tier: 'structure' },
   { x: 0,     y: 8.3,  z: 0,     tier: 'flight'    },
-  { x: 0,     y: 10.9, z: -56.5, tier: 'flight'    },
-  { x: -39.5, y: 5.9,  z: 39.5,  tier: 'flight'    },
-  { x: -44.8, y: 5.9,  z: 34.3,  tier: 'flight'    },
-  { x: -34.3, y: 5.9,  z: 44.8,  tier: 'flight'    }
+  { x: 0,     y: 10.9, z: -86.5, tier: 'flight'    },
+  { x: -59.3, y: 5.9,  z: 59.3,  tier: 'flight'    },
+  { x: -67.1, y: 5.9,  z: 51.4,  tier: 'flight'    },
+  { x: -51.4, y: 5.9,  z: 67.1,  tier: 'flight'    }
 ];
 /* Shuffle anchors: the 24 tier anchors plus 6 extra plausible spots in the
    same tiers. A shuffle run deals 24 of these 30, seeded per run. */
 var ANCHORS = COINS.concat([
-  { x: 34,    y: 2.7,  z: 24.5,  tier: 'ground'    },
-  { x: -34,   y: 2.7,  z: -24.5, tier: 'ground'    },
+  { x: 51,    y: 2.7,  z: 36.5,  tier: 'ground'    },
+  { x: -51,   y: 2.7,  z: -36.5, tier: 'ground'    },
   { x: 0,     y: 4.2,  z: 8,     tier: 'flight'    },
-  { x: 50,    y: 2.4,  z: 0,     tier: 'ground'    },
-  { x: -36,   y: -0.3, z: 36,    tier: 'ground'    },
-  { x: -24,   y: 10.9, z: -56.5, tier: 'structure' }
+  { x: 80,    y: 2.4,  z: 0,     tier: 'ground'    },
+  { x: -54,   y: -0.3, z: 54,    tier: 'ground'    },
+  { x: -36,   y: 10.9, z: -86.5, tier: 'structure' }
 ]);
 function mulberry32(a) {
   return function () {
@@ -640,7 +644,7 @@ function tangentVelocity(s, heading, speed) {
 function createGame(tune) {
   var scoring = createScoring(tune);
   var clock = createRunClock(180);
-  var car = { x: 0, y: 0, z: 47, heading: Math.PI, speed: 0, vx: 0, vy: 0, vz: 0,
+  var car = { x: 0, y: 0, z: 70, heading: Math.PI, speed: 0, vx: 0, vy: 0, vz: 0,
               q: [0, 0, 0, 1], wx: 0, wy: 0, wz: 0, mode: 'ground', airTime: 0,
               wings: false, corkscrew: false, accPitch: 0, accRoll: 0, accYaw: 0,
               crashT: 0, surf: null };
@@ -651,9 +655,9 @@ function createGame(tune) {
             shuffleOn: false, seed: 1 };
 
   function placeCar() {
-    car.x = 0; car.z = 47; car.heading = Math.PI; car.speed = 0;
+    car.x = 0; car.z = 70; car.heading = Math.PI; car.speed = 0;
     car.vx = 0; car.vy = 0; car.vz = 0; car.wx = 0; car.wy = 0; car.wz = 0;
-    car.surf = groundBelowAt(0, 47, 100);
+    car.surf = groundBelowAt(0, 70, 100);
     car.y = car.surf.h + WHEEL;
     car.q = groundQuat(car.heading, car.surf.nx, car.surf.ny, car.surf.nz);
     car.mode = 'ground'; car.airTime = 0; car.wings = false; car.corkscrew = false;
@@ -697,19 +701,32 @@ function createGame(tune) {
                           yaw: car.accYaw * 180 / Math.PI, airtime: car.airTime }).pending;
   };
 
-  function isBlocked(x, z, bottom) {
-    var list = surfacesAt(x, z), i, s;
+  /* The highest surface that could block a car whose base is at refBottom.
+     Floating structures the car passes beneath (deck, rail, deck ramps high
+     above it) do not count. The rim always counts: its side is a wall. */
+  function faceTopAt(px, pz, refBottom) {
+    var list = surfacesAt(px, pz), i, s, top = null;
     for (i = 0; i < list.length; i++) {
       s = list[i];
-      if (s.h > bottom + 0.9 && s.under < car.y + 0.8) return true;
+      if (s.stacked && s.zone !== 'rim' && s.under > refBottom + 1.2) continue;
+      if (!top || s.h > top.h) top = s;
     }
-    return false;
+    return top;
   }
-  function clampWalls() {
-    if (car.x > 58.6) { car.x = 58.6; car.speed *= 0.6; }
-    if (car.x < -58.6) { car.x = -58.6; car.speed *= 0.6; }
-    if (car.z > 58.6) { car.z = 58.6; car.speed *= 0.6; }
-    if (car.z < -58.6) { car.z = -58.6; car.speed *= 0.6; }
+  function faceAt(px, pz, allow, refBottom) {
+    var top = faceTopAt(px, pz, refBottom);
+    return (top && top.h > refBottom + allow) ? top : null;
+  }
+  /* Plan-view gradient of the blocking height, by finite differences. Across
+     a cliff (a wedge side, the rim edge) the difference is huge and points
+     straight across the boundary, which is exactly the direction a slide
+     must remove from the movement. */
+  function faceGradAt(px, pz, refBottom) {
+    var e = 0.3;
+    var hx1 = faceTopAt(px + e, pz, refBottom), hx0 = faceTopAt(px - e, pz, refBottom);
+    var hz1 = faceTopAt(px, pz + e, refBottom), hz0 = faceTopAt(px, pz - e, refBottom);
+    return { x: ((hx1 ? hx1.h : 0) - (hx0 ? hx0.h : 0)) / (2 * e),
+             z: ((hz1 ? hz1.h : 0) - (hz0 ? hz0.h : 0)) / (2 * e) };
   }
 
   function stepGround(dt, input) {
@@ -732,51 +749,78 @@ function createGame(tune) {
     car.speed -= tune.gravity * fy * dt * 0.55; // slopes push back, descents pull
     if (car.speed > 44) car.speed = 44;
     if (car.speed < -12) car.speed = -12;
-    /* Ballistic step: velocity runs along the surface tangent (climbing a face
-       converts speed into upward velocity) and gravity always acts. Ground
-       contact is a constraint applied after the move, never glue: if the
-       surface has fallen away below the ballistic position, the car is
-       airborne carrying that velocity, upward component included. */
-    var tv = tangentVelocity(n, car.heading, car.speed);
-    tv.y -= tune.gravity * dt;
-    var prevX = car.x, prevZ = car.z, prevBottom = car.y - WHEEL;
-    var mx = car.x + tv.x * dt, mz = car.z + tv.z * dt;
-    var my = car.y + tv.y * dt;
-    /* Deflection: a solid surface rising faster than any real slope in the
-       arena (steepest is the quarter pipe at gradient 2.0) is a face, not a
-       climb. Slide along it or stop against it; never enter it. Floating
-       structures (deck, rail, deck ramps) are skipped: the car passes under. */
-    function faceAt(px, pz, allow) {
-      var list = surfacesAt(px, pz), i, s, top = null;
-      for (i = 0; i < list.length; i++) {
-        s = list[i];
-        if (s.stacked && s.zone !== 'rim' && s.under > prevBottom + 1.2) continue;
-        if (!top || s.h > top.h) top = s;
-      }
-      return (top && top.h > prevBottom + allow) ? top : null;
+    /* Swept movement: the step is split so the car never travels more than
+       ~0.4m without a contact test, so no step size can tunnel it through a
+       ramp, a wedge side, or a wall. Contact SLIDES (see stepGroundMove):
+       only the movement into the surface is removed, the car keeps its
+       speed along the surface, and car.speed is never touched by contact. */
+    var remaining = dt, guard = 0;
+    while (remaining > 1e-9 && car.mode === 'ground' && guard++ < 48) {
+      var tv0 = tangentVelocity(car.surf, car.heading, car.speed);
+      var planSpd = Math.sqrt(tv0.x * tv0.x + tv0.z * tv0.z);
+      var sdt = planSpd > 1e-6 ? Math.min(remaining, 0.4 / planSpd) : remaining;
+      stepGroundMove(sdt);
+      remaining -= sdt;
     }
+  }
+
+  /* One swept substep of ground movement (at most ~0.4m of plan travel).
+     Ballistic at heart: velocity runs along the surface tangent (climbing a
+     face converts speed into upward velocity) and gravity always acts.
+     Ground contact is a constraint applied after the move, never glue: if
+     the surface has fallen away below the ballistic position, the car is
+     airborne carrying that velocity, upward component included. */
+  function stepGroundMove(sdt) {
+    var tv = tangentVelocity(car.surf, car.heading, car.speed);
+    tv.y -= tune.gravity * sdt;
+    var prevX = car.x, prevZ = car.z, prevBottom = car.y - WHEEL;
+    var dx = tv.x * sdt, dz = tv.z * sdt;
+    var mx = prevX + dx, mz = prevZ + dz;
+    var my = car.y + tv.y * sdt;
+    /* Room walls: clamp the candidate to the wall line. Only the axis that
+       crossed is clamped, so the tangential part of the move survives in
+       full: the car slides along the wall instead of stopping against it. */
+    if (mx > WALL) mx = WALL; if (mx < -WALL) mx = -WALL;
+    if (mz > WALL) mz = WALL; if (mz < -WALL) mz = -WALL;
     var dist = Math.sqrt((mx - prevX) * (mx - prevX) + (mz - prevZ) * (mz - prevZ));
     var allow = dist * 2.5 + 0.05;
-    if (faceAt(mx, mz, allow)) {
-      if (!faceAt(mx, prevZ, allow)) { mz = prevZ; }
-      else if (!faceAt(prevX, mz, allow)) { mx = prevX; }
-      else { mx = prevX; mz = prevZ; }
-      car.speed *= 0.55;
+    /* Face contact: a solid surface rising faster than any real slope in
+       the arena (steepest is the quarter pipe at gradient 2.0) is a face,
+       not a climb. Remove the movement component along the face's uphill
+       gradient; what remains is the slide along the face. Never enter it.
+       Floating structures (deck, rail, deck ramps) are skipped by faceAt:
+       the car passes under them. */
+    if (faceAt(mx, mz, allow, prevBottom)) {
+      var gr = faceGradAt(mx, mz, prevBottom);
+      var gl = Math.sqrt(gr.x * gr.x + gr.z * gr.z);
+      if (gl > 1e-6) {
+        var ugx = gr.x / gl, ugz = gr.z / gl;
+        var into = dx * ugx + dz * ugz;
+        if (into > 0) { mx = prevX + (dx - into * ugx); mz = prevZ + (dz - into * ugz); }
+      }
+      if (faceAt(mx, mz, allow, prevBottom)) {
+        if (!faceAt(mx, prevZ, allow, prevBottom)) { mz = prevZ; }
+        else if (!faceAt(prevX, mz, allow, prevBottom)) { mx = prevX; }
+        else { mx = prevX; mz = prevZ; }
+      }
+      if (mx > WALL) mx = WALL; if (mx < -WALL) mx = -WALL;
+      if (mz > WALL) mz = WALL; if (mz < -WALL) mz = -WALL;
       dist = Math.sqrt((mx - prevX) * (mx - prevX) + (mz - prevZ) * (mz - prevZ));
       allow = dist * 2.5 + 0.05;
     }
     /* Rim gate (Heat Ladder H1): the rim band is a wall to a low car on the
-       ground too, since the gated rim surface no longer deflects it. */
+       ground too, since the gated rim surface no longer deflects it. Clamp
+       the crossing coordinate to the band edge: the car slides along the
+       gate line and keeps its speed. */
     if (GATES.rim && prevBottom < 5.5 && inRimBand(mx, mz) && !inRimBand(prevX, prevZ)) {
-      if (!inRimBand(mx, prevZ)) { mz = prevZ; }
-      else if (!inRimBand(prevX, mz)) { mx = prevX; }
-      else { mx = prevX; mz = prevZ; }
-      car.speed *= 0.55;
+      if (Math.abs(mx) >= RIM_EDGE && Math.abs(prevX) < RIM_EDGE) mx = mx > 0 ? RIM_EDGE - 0.01 : -(RIM_EDGE - 0.01);
+      if (Math.abs(mz) >= RIM_EDGE && Math.abs(prevZ) < RIM_EDGE) mz = mz > 0 ? RIM_EDGE - 0.01 : -(RIM_EDGE - 0.01);
+      if (inRimBand(mx, mz)) { mx = prevX; mz = prevZ; }
     }
-    car.x = mx; car.z = mz; clampWalls();
+    car.x = mx; car.z = mz;
     /* Resting surface: the highest surface the car could have climbed to in
-       this step. Anything higher is a face it was deflected from, or a
-       floating structure it is passing beneath. */
+       this substep. Anything higher is a face it slid along, or a floating
+       structure it is passing beneath. */
     var list = surfacesAt(car.x, car.z), cand = list[list.length - 1], i2;
     for (i2 = 0; i2 < list.length; i2++) { if (list[i2].h <= prevBottom + allow) { cand = list[i2]; break; } }
     var newBottom = my - WHEEL;
@@ -801,16 +845,52 @@ function createGame(tune) {
     if (car.mode === 'ground' && car.y - WHEEL < car.surf.h - 0.05) car.y = car.surf.h + WHEEL;
   }
 
-  function inRimBand(x, z) { return Math.max(Math.abs(x), Math.abs(z)) >= 53; }
-  function sideCollide(px, pz) {
+  function inRimBand(x, z) { return Math.max(Math.abs(x), Math.abs(z)) >= RIM_EDGE; }
+  /* Airborne side contact, resolved per substep so nothing tunnels and
+     everything slides: the car is clamped to the face it crossed and only
+     the velocity component into that face is removed; the tangential
+     component survives in full. (px, pz) is the substep's start position. */
+  function sideCollideAir(px, pz) {
     var bottom = car.y - WHEEL;
-    if ((bottom < 5.55 || (GATES.rim && bottom < 6.05)) && inRimBand(car.x, car.z) && !inRimBand(px, pz)) {
-      car.x = px; car.z = pz; car.vx *= -0.2; car.vz *= -0.2; return;
+    // The rim's inner side face, met below rim height.
+    if (bottom < 6.05 && inRimBand(car.x, car.z) && !inRimBand(px, pz)) {
+      if (Math.abs(car.x) >= RIM_EDGE && Math.abs(px) < RIM_EDGE) {
+        car.x = car.x > 0 ? RIM_EDGE - 0.01 : -(RIM_EDGE - 0.01);
+        if (car.vx * car.x > 0) car.vx = 0;
+      }
+      if (Math.abs(car.z) >= RIM_EDGE && Math.abs(pz) < RIM_EDGE) {
+        car.z = car.z > 0 ? RIM_EDGE - 0.01 : -(RIM_EDGE - 0.01);
+        if (car.vz * car.z > 0) car.vz = 0;
+      }
+      if (inRimBand(car.x, car.z)) { car.x = px; car.z = pz; }
     }
-    var slabX = function (x) { return (x >= 4.5 && x <= 44) || (x <= -4.5 && x >= -44); };
-    if (car.z <= -53 && car.z >= -60 && car.y > 8.4 && car.y < 10.2) {
-      if (slabX(car.x) && !slabX(px)) { car.x = px; car.vx *= -0.2; }
-      else if (slabX(car.x) && pz > -53) { car.z = pz; car.vz *= -0.2; }
+    // The deck slabs' side faces: the south face, and the Toll Gap / end faces.
+    var slabX = function (x) { return (x >= 4.5 && x <= 71) || (x <= -4.5 && x >= -71); };
+    var inSlab = function (x, z) { return z <= -RIM_EDGE && z >= -90 && slabX(x); };
+    if (car.y > 8.4 && car.y < 10.37 && inSlab(car.x, car.z) !== inSlab(px, pz)) {
+      if (pz > -RIM_EDGE && car.z <= -RIM_EDGE) { car.z = -(RIM_EDGE - 0.01); if (car.vz < 0) car.vz = 0; }
+      else {
+        var edges = [4.5, -4.5, 71, -71], ei, b = null;
+        for (ei = 0; ei < edges.length; ei++) {
+          if ((px - edges[ei]) * (car.x - edges[ei]) < 0) { b = edges[ei]; break; }
+        }
+        if (b !== null) {
+          car.x = b + (px > b ? 0.01 : -0.01);
+          if ((car.vx > 0) === (px < b)) car.vx = 0;
+        } else if (inSlab(car.x, car.z)) { car.x = px; car.z = pz; }
+      }
+    }
+    // The Rail's sides: push out along the beam's perpendicular and slide.
+    var rdx = RAIL.x2 - RAIL.x1, rdz = RAIL.z2 - RAIL.z1;
+    var rtt = clamp(((car.x - RAIL.x1) * rdx + (car.z - RAIL.z1) * rdz) / (rdx * rdx + rdz * rdz), 0, 1);
+    var rcx = RAIL.x1 + rdx * rtt, rcz = RAIL.z1 + rdz * rtt;
+    var rox = car.x - rcx, roz = car.z - rcz;
+    var rod = Math.sqrt(rox * rox + roz * roz);
+    if (rod < RAIL.half + 0.05 && rod > 1e-6 && car.y > RAIL.under - 0.4 && bottom < RAIL.h) {
+      var rnx = rox / rod, rnz = roz / rod;
+      car.x = rcx + rnx * (RAIL.half + 0.05); car.z = rcz + rnz * (RAIL.half + 0.05);
+      var rvn = car.vx * rnx + car.vz * rnz;
+      if (rvn < 0) { car.vx -= rvn * rnx; car.vz -= rvn * rnz; }
     }
   }
 
@@ -875,31 +955,51 @@ function createGame(tune) {
     if (input.stabilize) { var dr = Math.max(0, 1 - 0.08 * dt); car.vx *= dr; car.vz *= dr; }
     /* Substepped move (max ~0.4m of travel per substep) so a fast car can
        never tunnel through a surface between frames. Two ways to meet the
-       ground: cross it from above, or hit a solid face/rise sideways (the car
-       was above the terrain where it was and is below it where it is). The
-       second rule is what stops a low flight path entering the Crown, a bowl
-       lip or a feeder footprint underneath its surface. Floating structures
-       (deck, rail) only ever land via the crossing rule, so flying under
-       them stays flying under them. */
-    var px = car.x, pz = car.z;
+       ground: cross it from above (a touchdown, judged by land()), or meet
+       a solid face sideways (the car was above the terrain where it was and
+       is below it where it is). The second meeting SLIDES when the hit is
+       glancing and lands when it is genuine. Floating structures (deck,
+       rail) only ever land via the crossing rule, so flying under them
+       stays flying under them; their sides are handled by sideCollideAir. */
     var distA = Math.sqrt(car.vx * car.vx + car.vz * car.vz) * dt;
     var nSub = Math.max(1, Math.ceil(distA / 0.4)), sdt = dt / nSub, si;
     for (si = 0; si < nSub; si++) {
+      var spx = car.x, spz = car.z;
       var prevBottom = car.y - WHEEL;
       var prevSurfH = terrainAt(car.x, car.z).h;
       car.x += car.vx * sdt; car.y += car.vy * sdt; car.z += car.vz * sdt;
-      if (car.x > 58.6) { car.x = 58.6; car.vx = -Math.abs(car.vx) * 0.25; }
-      if (car.x < -58.6) { car.x = -58.6; car.vx = Math.abs(car.vx) * 0.25; }
-      if (car.z > 58.6) { car.z = 58.6; car.vz = -Math.abs(car.vz) * 0.25; }
-      if (car.z < -58.6) { car.z = -58.6; car.vz = Math.abs(car.vz) * 0.25; }
-      var bottom = car.y - WHEEL, list = surfacesAt(car.x, car.z), i, s;
+      /* Room walls: clamp to the wall line and remove ONLY the velocity
+         component into the wall. The tangential component survives in
+         full: the car slides along the wall, it never bounces or stops. */
+      if (car.x > WALL) { car.x = WALL; if (car.vx > 0) car.vx = 0; }
+      if (car.x < -WALL) { car.x = -WALL; if (car.vx < 0) car.vx = 0; }
+      if (car.z > WALL) { car.z = WALL; if (car.vz > 0) car.vz = 0; }
+      if (car.z < -WALL) { car.z = -WALL; if (car.vz < 0) car.vz = 0; }
+      var bottom = car.y - WHEEL, list = surfacesAt(car.x, car.z), i, s, grazed = false;
       for (i = 0; i < list.length; i++) {
         s = list[i];
         if (prevBottom >= s.h - 0.02 && bottom <= s.h && car.vy <= 1.5) { land(s); return; }
-        if (!s.stacked && bottom < s.h - 0.02 && prevBottom >= prevSurfH - 0.02) { land(s); return; }
+        if (!s.stacked && bottom < s.h - 0.02 && prevBottom >= prevSurfH - 0.02) {
+          /* Face contact. A glancing hit (car not tumbling, velocity mostly
+             along the face) SLIDES: the into-face component of the velocity
+             is removed and the car rides the face, still airborne. A genuine
+             impact (roof, side, or a steep downward hit) lands and is judged
+             by the unchanged landing bands. */
+          var vn = car.vx * s.nx + car.vy * s.ny + car.vz * s.nz;
+          var spd = Math.sqrt(car.vx * car.vx + car.vy * car.vy + car.vz * car.vz);
+          var up2 = qRotate(car.q, v3(0, 1, 0));
+          var cosA2 = clamp(up2.x * s.nx + up2.y * s.ny + up2.z * s.nz, -1, 1);
+          var ang2 = Math.acos(cosA2) * 180 / Math.PI;
+          if (vn < 0 && ang2 <= 45 && -vn <= 0.65 * spd) {
+            car.y = s.h + WHEEL;
+            car.vx -= vn * s.nx; car.vy -= vn * s.ny; car.vz -= vn * s.nz;
+            grazed = true;
+          } else { land(s); return; }
+          break;
+        }
       }
+      if (!grazed) sideCollideAir(spx, spz);
     }
-    sideCollide(px, pz);
     if (car.y < -8) land(groundBelowAt(car.x, car.z, 1e6)); // safety net, should not happen
   }
 
@@ -913,8 +1013,8 @@ function createGame(tune) {
     var drag = Math.max(0, 1 - 2.5 * dt);
     car.vx *= drag; car.vz *= drag;
     car.x += car.vx * dt; car.z += car.vz * dt;
-    if (car.x > 58.6) car.x = 58.6; if (car.x < -58.6) car.x = -58.6;
-    if (car.z > 58.6) car.z = 58.6; if (car.z < -58.6) car.z = -58.6;
+    if (car.x > WALL) car.x = WALL; if (car.x < -WALL) car.x = -WALL;
+    if (car.z > WALL) car.z = WALL; if (car.z < -WALL) car.z = -WALL;
     var s = groundBelowAt(car.x, car.z, car.y + 2);
     car.y = s.h + WHEEL; car.surf = s;
     if (car.crashT <= 0 || input.tap) {
@@ -993,7 +1093,7 @@ global.CF = {
   COINS: COINS, ANCHORS: ANCHORS, dealCoins: dealCoins, mulberry32: mulberry32,
   LADDER: LADDER, ladderHeat: ladderHeat, gatesForHeat: gatesForHeat,
   setGates: setGates, getGates: getGates,
-  FEEDERS: FEEDERS, RAIL: RAIL,
+  FEEDERS: FEEDERS, RAIL: RAIL, BOWL: BOWL, WALL: WALL, RIM_EDGE: RIM_EDGE,
   createScoring: createScoring, createRunClock: createRunClock, createGame: createGame
 };
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -1012,34 +1112,38 @@ var renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 container.appendChild(renderer.domElement);
 var scene = new THREE.Scene();
-scene.background = new THREE.Color(0x06110c);
-scene.fog = new THREE.Fog(0x06110c, 60, 155);
-var camera = new THREE.PerspectiveCamera(62, 1, 0.1, 420);
-camera.position.set(0, 16, 78);
-scene.add(new THREE.HemisphereLight(0x9fe8c8, 0x0a140e, 1.0));
-var sun = new THREE.DirectionalLight(0xe6fff2, 0.55);
+scene.background = new THREE.Color(0x0d5c46);
+scene.fog = new THREE.Fog(0x2e8f74, 90, 320);
+var camera = new THREE.PerspectiveCamera(62, 1, 0.1, 800);
+camera.position.set(0, 20, 84);
+scene.add(new THREE.HemisphereLight(0xcfffe8, 0x1d5c40, 1.3));
+var sun = new THREE.DirectionalLight(0xfff2d8, 0.95);
 sun.position.set(40, 90, 25);
 scene.add(sun);
 
-/* ---------- sky dome: dark gradient, stars, one horizon of city glow ---------- */
+/* ---------- sky dome: a full dusk gradient, teal zenith to a gold-coral
+   horizon. No black anywhere: even below the horizon the dome stays a
+   deep warm teal-green haze, so the world never shows void. ---------- */
 (function buildSky() {
   var cv = document.createElement('canvas'); cv.width = 1024; cv.height = 512;
   var ctx = cv.getContext('2d');
   var grad = ctx.createLinearGradient(0, 0, 0, 512);
-  grad.addColorStop(0, '#010403'); grad.addColorStop(0.42, '#04120b');
-  grad.addColorStop(0.55, '#06110c'); grad.addColorStop(0.62, '#030805'); grad.addColorStop(1, '#010302');
+  grad.addColorStop(0, '#063a4d'); grad.addColorStop(0.30, '#0a6e52');
+  grad.addColorStop(0.46, '#2fa37c'); grad.addColorStop(0.545, '#ffc46b');
+  grad.addColorStop(0.585, '#ff9a5c'); grad.addColorStop(0.63, '#1d7a5f');
+  grad.addColorStop(1, '#0b3d33');
   ctx.fillStyle = grad; ctx.fillRect(0, 0, 1024, 512);
-  // low city glow band, brightest on one horizon (u ~0.25)
+  // warm sunset glow, brightest on one horizon (u ~0.25)
   var glow = ctx.createRadialGradient(256, 292, 10, 256, 292, 340);
-  glow.addColorStop(0, 'rgba(25,211,218,0.34)'); glow.addColorStop(0.45, 'rgba(25,240,160,0.13)'); glow.addColorStop(1, 'rgba(25,240,160,0)');
+  glow.addColorStop(0, 'rgba(255,196,107,0.55)'); glow.addColorStop(0.45, 'rgba(255,154,92,0.22)'); glow.addColorStop(1, 'rgba(255,154,92,0)');
   ctx.fillStyle = glow; ctx.fillRect(0, 120, 1024, 260);
   var band = ctx.createLinearGradient(0, 268, 0, 300);
-  band.addColorStop(0, 'rgba(25,240,160,0)'); band.addColorStop(0.5, 'rgba(120,255,200,0.10)'); band.addColorStop(1, 'rgba(25,240,160,0)');
+  band.addColorStop(0, 'rgba(255,196,107,0)'); band.addColorStop(0.5, 'rgba(255,220,150,0.28)'); band.addColorStop(1, 'rgba(255,196,107,0)');
   ctx.fillStyle = band; ctx.fillRect(0, 268, 1024, 32);
-  // stars in the upper sky
-  for (var i = 0; i < 340; i++) {
-    var sx = Math.random() * 1024, sy = Math.pow(Math.random(), 1.4) * 235;
-    var a = 0.25 + Math.random() * 0.75, r = Math.random() < 0.08 ? 1.6 : 1;
+  // a few faint stars high in the teal, kept subtle against the dusk
+  for (var i = 0; i < 110; i++) {
+    var sx = Math.random() * 1024, sy = Math.pow(Math.random(), 1.4) * 150;
+    var a = 0.10 + Math.random() * 0.25, r = Math.random() < 0.08 ? 1.6 : 1;
     ctx.fillStyle = 'rgba(230,255,244,' + a.toFixed(2) + ')';
     ctx.fillRect(sx, sy, r, r);
   }
@@ -1057,19 +1161,19 @@ function strip(w, d, x, y, z, mat) {
 }
 
 /* ---------- terrain mesh from the analytic heightfield ---------- */
-var ZONE_COLORS = { floor: 0x132219, bowl: 0x0e1c14, crown: 0x1a2f21, 'crown-apex': 0x213a29,
-                    feeder: 0x16281d, ramp: 0x15261c, qp: 0x1c3325 };
+var ZONE_COLORS = { floor: 0x14705f, bowl: 0x1b9e8f, crown: 0x17a05e, 'crown-apex': 0x25c46f,
+                    feeder: 0xa87c36, ramp: 0x1f8f74, qp: 0xbf5f43 };
 var terrainMesh = null;
 function buildTerrain() {
   if (terrainMesh) { scene.remove(terrainMesh); terrainMesh.geometry.dispose(); terrainMesh.material.dispose(); }
-  var geo = new THREE.PlaneGeometry(120, 120, 120, 120);
+  var geo = new THREE.PlaneGeometry(180, 180, 180, 180);
   geo.rotateX(-Math.PI / 2);
   var pos = geo.attributes.position, colors = new Float32Array(pos.count * 3), col = new THREE.Color();
   for (var i = 0; i < pos.count; i++) {
     var x = pos.getX(i), z = pos.getZ(i);
     var s = CF.terrainAt(x, z);
     pos.setY(i, s.h);
-    col.setHex(ZONE_COLORS[s.zone] || 0x132219);
+    col.setHex(ZONE_COLORS[s.zone] || 0x14705f);
     colors[i * 3] = col.r; colors[i * 3 + 1] = col.g; colors[i * 3 + 2] = col.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
@@ -1083,39 +1187,39 @@ buildTerrain();
 /* ---------- elevated structures ---------- */
 var deckRampMeshes = [];
 (function buildStructures() {
-  var rimMat = lam(0x182720), deckMat = lam(0x1b2b21);
+  var rimMat = lam(0x177a6b), deckMat = lam(0x5d4f92);
   function box(w, h, d, x, y, z, mat) {
     var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
     m.position.set(x, y, z); scene.add(m); return m;
   }
-  box(120, 6, 7, 0, 3, -56.5, rimMat); box(120, 6, 7, 0, 3, 56.5, rimMat);
-  box(7, 6, 106, 56.5, 3, 0, rimMat); box(7, 6, 106, -56.5, 3, 0, rimMat);
-  strip(120, 0.28, 0, 6.07, -53.15); strip(120, 0.28, 0, 6.07, 53.15);
-  strip(0.28, 106, 53.15, 6.07, 0); strip(0.28, 106, -53.15, 6.07, 0);
+  box(180, 6, 7, 0, 3, -86.5, rimMat); box(180, 6, 7, 0, 3, 86.5, rimMat);
+  box(7, 6, 166, 86.5, 3, 0, rimMat); box(7, 6, 166, -86.5, 3, 0, rimMat);
+  strip(180, 0.28, 0, 6.07, -83.15); strip(180, 0.28, 0, 6.07, 83.15);
+  strip(0.28, 166, 83.15, 6.07, 0); strip(0.28, 166, -83.15, 6.07, 0);
   // Crown apex outline
   strip(4.4, 0.24, 0, 7.06, 2); strip(4.4, 0.24, 0, 7.06, -2);
   strip(0.24, 4.4, 2, 7.06, 0); strip(0.24, 4.4, -2, 7.06, 0);
   // Upper deck slabs, supports, access ramps, front edge trim
-  box(39.5, 1, 7, 24.25, 9.5, -56.5, deckMat); box(39.5, 1, 7, -24.25, 9.5, -56.5, deckMat);
-  box(0.6, 3, 0.6, 42, 7.5, -59.3, deckMat); box(0.6, 3, 0.6, 7, 7.5, -59.3, deckMat);
-  box(0.6, 3, 0.6, -42, 7.5, -59.3, deckMat); box(0.6, 3, 0.6, -7, 7.5, -59.3, deckMat);
-  strip(39.5, 0.28, 24.25, 10.06, -53.15); strip(39.5, 0.28, -24.25, 10.06, -53.15);
+  box(66.5, 1, 7, 37.75, 9.5, -86.5, deckMat); box(66.5, 1, 7, -37.75, 9.5, -86.5, deckMat);
+  box(0.6, 3, 0.6, 66, 7.5, -89.3, deckMat); box(0.6, 3, 0.6, 10, 7.5, -89.3, deckMat);
+  box(0.6, 3, 0.6, -66, 7.5, -89.3, deckMat); box(0.6, 3, 0.6, -10, 7.5, -89.3, deckMat);
+  strip(66.5, 0.28, 37.75, 10.06, -83.15); strip(66.5, 0.28, -37.75, 10.06, -83.15);
   function deckRamp(sign) {
     var g2 = new THREE.PlaneGeometry(10, 7, 10, 1);
     g2.rotateX(-Math.PI / 2);
     var p = g2.attributes.position;
     for (var i = 0; i < p.count; i++) {
-      var wx = p.getX(i) + sign * 49;
-      p.setY(i, sign > 0 ? 6 + (54 - wx) * 0.4 : 6 + (wx + 54) * 0.4);
+      var wx = p.getX(i) + sign * 76;
+      p.setY(i, sign > 0 ? 6 + (81 - wx) * 0.4 : 6 + (wx + 81) * 0.4);
     }
     g2.computeVertexNormals();
-    var m = new THREE.Mesh(g2, new THREE.MeshLambertMaterial({ color: 0x182720, side: THREE.DoubleSide }));
-    m.position.set(sign * 49, 0, -56.5); scene.add(m); deckRampMeshes.push(m);
+    var m = new THREE.Mesh(g2, new THREE.MeshLambertMaterial({ color: 0x177a6b, side: THREE.DoubleSide }));
+    m.position.set(sign * 76, 0, -86.5); scene.add(m); deckRampMeshes.push(m);
   }
   deckRamp(1); deckRamp(-1);
   // The Rail across the bowl corner
   var R = CF.RAIL, len = Math.sqrt((R.x2 - R.x1) * (R.x2 - R.x1) + (R.z2 - R.z1) * (R.z2 - R.z1));
-  var rail = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.3, len), lam(0x203629));
+  var rail = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.3, len), lam(0x2a9d74));
   rail.position.set((R.x1 + R.x2) / 2, R.h - 0.15, (R.z1 + R.z2) / 2);
   rail.rotation.y = Math.atan2(R.x2 - R.x1, R.z2 - R.z1);
   scene.add(rail);
@@ -1123,14 +1227,14 @@ var deckRampMeshes = [];
   railTrim.position.copy(rail.position); railTrim.position.y = R.h + 0.05;
   railTrim.rotation.y = rail.rotation.y; scene.add(railTrim);
   // Start pad outline
-  strip(5.4, 0.24, 0, 0.07, 44.4); strip(5.4, 0.24, 0, 0.07, 49.6);
-  strip(0.24, 5.4, -2.6, 0.07, 47); strip(0.24, 5.4, 2.6, 0.07, 47);
+  strip(5.4, 0.24, 0, 0.07, 67.4); strip(5.4, 0.24, 0, 0.07, 72.6);
+  strip(0.24, 5.4, -2.6, 0.07, 70); strip(0.24, 5.4, 2.6, 0.07, 70);
   // Wall-top outer coping (the rim boxes are the walls)
-  strip(120, 0.28, 0, 6.07, -59.8); strip(120, 0.28, 0, 6.07, 59.8);
-  strip(0.28, 120, 59.8, 6.07, 0); strip(0.28, 120, -59.8, 6.07, 0);
+  strip(180, 0.28, 0, 6.07, -89.8); strip(180, 0.28, 0, 6.07, 89.8);
+  strip(0.28, 180, 89.8, 6.07, 0); strip(0.28, 180, -89.8, 6.07, 0);
   // Toll Gap lips and deck back edges
-  strip(0.28, 7, 4.5, 10.06, -56.5); strip(0.28, 7, -4.5, 10.06, -56.5);
-  strip(39.5, 0.28, 24.25, 10.06, -59.8); strip(39.5, 0.28, -24.25, 10.06, -59.8);
+  strip(0.28, 7, 4.5, 10.06, -86.5); strip(0.28, 7, -4.5, 10.06, -86.5);
+  strip(66.5, 0.28, 37.75, 10.06, -89.8); strip(66.5, 0.28, -37.75, 10.06, -89.8);
   // Crown trim: base perimeter where the faces meet the floor
   strip(21.9, 0.24, 0, 0.09, 13.2); strip(21.9, 0.24, 0, 0.09, -9);
   strip(0.24, 22.2, 10.96, 0.09, 2.1); strip(0.24, 22.2, -10.96, 0.09, 2.1);
@@ -1170,7 +1274,7 @@ function makeBarrier(w, h, label, sub) {
   grp.add(box);
   var cv = document.createElement('canvas'); cv.width = 256; cv.height = 128;
   var ctx = cv.getContext('2d');
-  ctx.fillStyle = 'rgba(4,17,12,0.88)'; ctx.fillRect(0, 0, 256, 128);
+  ctx.fillStyle = 'rgba(7,38,30,0.88)'; ctx.fillRect(0, 0, 256, 128);
   ctx.strokeStyle = '#19f0a0'; ctx.lineWidth = 6; ctx.strokeRect(4, 4, 248, 120);
   ctx.textAlign = 'center';
   ctx.fillStyle = '#19f0a0'; ctx.font = '900 44px sans-serif'; ctx.fillText(label, 128, 58);
@@ -1186,10 +1290,10 @@ function makeBarrier(w, h, label, sub) {
   return grp;
 }
 (function buildGates() {
-  var ne = makeBarrier(7, 2.4, 'LOCKED', 'OPENS HEAT 2'); ne.position.set(49, 1.3, -49.5); ne.rotation.y = Math.PI / 2; gateMeshes.rim.push(ne);
-  var sw = makeBarrier(7, 2.4, 'LOCKED', 'OPENS HEAT 2'); sw.position.set(-49, 1.3, 49.5); sw.rotation.y = Math.PI / 2; gateMeshes.rim.push(sw);
-  var de = makeBarrier(7, 2.4, 'LOCKED', 'OPENS HEAT 3'); de.position.set(52, 7.3, -56.5); de.rotation.y = Math.PI / 2; gateMeshes.deck.push(de);
-  var dw = makeBarrier(7, 2.4, 'LOCKED', 'OPENS HEAT 3'); dw.position.set(-52, 7.3, -56.5); dw.rotation.y = Math.PI / 2; gateMeshes.deck.push(dw);
+  var ne = makeBarrier(7, 2.4, 'LOCKED', 'OPENS HEAT 2'); ne.position.set(48, 1.3, -74.5); ne.rotation.y = Math.PI / 2; gateMeshes.rim.push(ne);
+  var sw = makeBarrier(7, 2.4, 'LOCKED', 'OPENS HEAT 2'); sw.position.set(-48, 1.3, 74.5); sw.rotation.y = Math.PI / 2; gateMeshes.rim.push(sw);
+  var de = makeBarrier(7, 2.4, 'LOCKED', 'OPENS HEAT 3'); de.position.set(76, 7.3, -86.5); de.rotation.y = Math.PI / 2; gateMeshes.deck.push(de);
+  var dw = makeBarrier(7, 2.4, 'LOCKED', 'OPENS HEAT 3'); dw.position.set(-76, 7.3, -86.5); dw.rotation.y = Math.PI / 2; gateMeshes.deck.push(dw);
 })();
 var lastGateSig = null;
 function syncGates() {
@@ -1234,7 +1338,7 @@ var coinMeshes = [], coinPillars = [];
 /* ---------- the car ---------- */
 var carGroup = new THREE.Group(), wingL, wingR, wheels = [];
 (function buildCar() {
-  var body = lam(0x0d9e63), dark = lam(0x0d1210), canopy = lam(0x05080a);
+  var body = lam(0x15b56b), dark = lam(0x14302a), canopy = lam(0x0d2b26);
   function part(geo, mat, x, y, z) {
     var m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); carGroup.add(m); return m;
   }
@@ -1536,10 +1640,10 @@ function drainEvents() {
   }
 }
 function setHeatFog(heat) {
-  if (game.mode === 'ladder' && heat >= 5) { // Heat 5: the night deepens
-    scene.fog.near = 42; scene.fog.far = 118; scene.background.setHex(0x030a06);
+  if (game.mode === 'ladder' && heat >= 5) { // Heat 5: the dusk deepens, never black
+    scene.fog.near = 60; scene.fog.far = 230; scene.fog.color.setHex(0x17604c); scene.background.setHex(0x084a3a);
   } else {
-    scene.fog.near = 60; scene.fog.far = 155; scene.background.setHex(0x06110c);
+    scene.fog.near = 90; scene.fog.far = 320; scene.fog.color.setHex(0x2e8f74); scene.background.setHex(0x0d5c46);
   }
 }
 function onRunOver(ev) {
