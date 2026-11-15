@@ -82,6 +82,13 @@
     background: rgba(7,38,30,0.72); box-shadow: 3px 3px 0 rgba(43,35,32,0.55); overflow: hidden;
   }
   #prog { height: 100%; width: 0%; background: #19f0a0; }
+  #climbHud {
+    position: absolute; z-index: 5; left: 50%; transform: translateX(-50%);
+    top: calc(64px + env(safe-area-inset-top)); width: min(430px, 78vw);
+    display: none; text-align: center; pointer-events: none;
+  }
+  #climbDist { font-size: 34px; font-weight: 900; letter-spacing: 1px; color: #ffc44d; text-shadow: 0 2px 10px rgba(0,0,0,0.75); }
+  #climbHeight { font-size: 13px; font-weight: 800; letter-spacing: 1.5px; color: #19d3da; margin-top: 2px; text-shadow: 0 2px 8px rgba(0,0,0,0.7); }
   .steerBtn {
     position: absolute; z-index: 6; bottom: 118px;
     width: 62px; height: 62px; border-radius: 50%;
@@ -182,16 +189,16 @@
     margin-top: 14px; font-size: 12px; font-weight: 800; letter-spacing: 3px; color: #19d3da;
     animation: pendPulse 0.8s ease-in-out infinite alternate;
   }
-  .modeCards { display: flex; flex-direction: column; gap: 12px; margin-top: 22px; width: min(430px, 92vw); }
+  .modeCards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 22px; width: min(600px, 94vw); }
   .modeCard {
     pointer-events: auto; cursor: pointer; text-align: left; font-family: inherit;
     background: rgba(7,38,30,0.85); border: 2px solid #2b2320; border-radius: 14px;
     box-shadow: 5px 5px 0 rgba(43,35,32,0.85);
-    padding: 14px 18px; color: #dfe7e2;
+    padding: 12px 14px; color: #dfe7e2;
   }
-  .mcName { display: block; font-size: 21px; font-weight: 900; letter-spacing: 1.5px; color: #19f0a0; }
-  .mcDesc { display: block; margin-top: 4px; font-size: 13.5px; line-height: 1.45; color: #cfe0d7; }
-  .mcBest { display: block; margin-top: 7px; font-size: 12px; font-weight: 800; letter-spacing: 1px; color: #ffc44d; min-height: 15px; }
+  .mcName { display: block; font-size: 19px; font-weight: 900; letter-spacing: 1.5px; color: #19f0a0; }
+  .mcDesc { display: block; margin-top: 4px; font-size: 12.5px; line-height: 1.45; color: #cfe0d7; }
+  .mcBest { display: block; margin-top: 7px; font-size: 11.5px; font-weight: 800; letter-spacing: 1px; color: #ffc44d; min-height: 15px; }
   .menuRow { display: flex; gap: 12px; margin-top: 16px; }
   .menuRow .bigBtn { margin-top: 0; padding: 12px 22px; font-size: 15px; }
 
@@ -253,6 +260,7 @@
   </div>
   <div class="hud" id="hudTopCenter"><div id="clock">3:00</div><div id="heatLabel"></div></div>
   <div id="trackHud"><div id="gateLabel">GATES 0/9</div><div id="progWrap"><div id="prog"></div></div></div>
+  <div id="climbHud"><div id="climbDist">0 m</div><div id="climbHeight">HEIGHT 0 m</div></div>
   <div class="hud" id="hudTopRight">
     <div id="coins">● 0/24</div>
     <div id="speed">0 km/h</div>
@@ -308,6 +316,7 @@
     <p class="hmode">SCORE ATTACK: one three minute run. Beat your best score, combo, and coin count.</p>
     <p class="hmode">HEAT LADDER: five heats with rising targets. The rim opens at Heat 2, the deck at Heat 3, and from Heat 3 coins also buy you time.</p>
     <p class="hmode">TRACK RUN: a downhill time trial on the Ridgeline Run. The clock starts at 75 seconds and every gate you cross adds 8 more. Stunts and coins still score, but the clock is the headline. Missed gates are allowed, they just cost you the time.</p>
+    <p class="hmode">ENDLESS CLIMB: an endless ramp into the sky. It narrows and curves harder the higher you get, and there is nothing off the edges but the long way down. The gold line across the ramp is your best distance. How far can you get?</p>
     <button class="bigBtn" id="howtoClose">DONE</button>
   </div>
 
@@ -330,6 +339,11 @@
         <span class="mcName">TRACK RUN</span>
         <span class="mcDesc">The Ridgeline Run. Five kilometers of mountain road, downhill all the way. Beat the clock, feed it at the gates.</span>
         <span class="mcBest" id="trackBest"></span>
+      </button>
+      <button class="modeCard" id="climbBtn">
+        <span class="mcName">ENDLESS CLIMB</span>
+        <span class="mcDesc">One ramp, climbing forever, narrowing as it goes. No clock, no gates. Fall off the edge and the run is done. Distance is the score.</span>
+        <span class="mcBest" id="climbBest"></span>
       </button>
     </div>
     <div class="menuRow">
@@ -1053,6 +1067,231 @@ var COURSE = (function () {
            bound: Math.max(Math.abs(minX), Math.abs(maxX), Math.abs(minZ), Math.abs(maxZ)) + 900 };
 })();
 
+/* ---------------- ENDLESS CLIMB ----------------
+   A third world: one endless ramp ribbon climbing into the sky. The
+   centerline is a pure function of distance, integrated forward into a
+   sliding sample window (2 m spacing): gentle S-curves whose curvature
+   amplitude grows and wavelength shrinks with distance, a steady grade
+   in long swells (about 7 to 14 degrees), banking from the analytic
+   curvature. The ribbon starts 20 m wide and narrows to a 10 m floor by
+   3,000 m. Off the ribbon there is NO surface at all: the surface
+   function returns a void, the car falls, and once a fall is called the
+   module voids every surface so the falling car can never land again.
+   Generation only ever moves forward and the window is trimmed behind
+   the car, so sample count and per-frame cost stay constant forever. */
+var CLIMB_DS = 1; // 1 m samples: the polygon sagitta at the tightest curve radius (~217 m) stays ~0.6 mm, under the ground-contact tolerance, so the car is not launched by sampling ripple at speed
+function climbKap(s) {
+  if (s < 300) return 0; // the first 300 m are straight, full width
+  var grow = clamp((s - 300) / 3700, 0, 1);
+  var amp = 0.0016 + 0.0030 * grow;   // curve radius 625 m -> 217 m
+  var lam = 950 - 450 * grow;         // wavelength 950 m -> 500 m
+  return amp * Math.sin(2 * Math.PI * (s - 300) / lam + 0.7);
+}
+function climbGradeTan(s) {
+  var deg = 10 + 3 * Math.sin(2 * Math.PI * s / 1750 + 1.3) + Math.min(1.5, s * 0.00025);
+  return Math.tan(deg * Math.PI / 180);
+}
+function climbBankAt(s) { return -clamp(2.6 * climbKap(s), -0.09, 0.09); }
+function climbWidthAt(s) {
+  if (s <= 300) return 20;
+  return Math.max(10, 20 - (s - 300) * (10 / 2700));
+}
+/* Kickers: smooth launch humps on the centerline every ~620 to 880 m.
+   The profile is a raised cosine, so there is no lip cliff: the car
+   crests the hump and the falling back slope launches it, the way the
+   arena feeders work. (A flat wedge's 4 m lip cliff made the finite-
+   difference surface normal lean over the edge, and every kicker exit
+   launched the car nose-down into a BAD landing.) Each nominal
+   position is searched forward for the calmest curvature over the
+   flight window after the crest, so a careful driver can take the air
+   and still find the ribbon; a fast one in a curve may not. */
+var CLIMB_KICK_LEN = 30, CLIMB_KICK_H = 4, CLIMB_KICK_HALF = 3.2;
+var climbKickStarts = [], climbKickRng = null;
+function climbKickInit() {
+  climbKickStarts = [];
+  climbKickRng = mulberry32(1337);
+}
+function climbKickAvgKap(s) {
+  var sum = 0, n = 0, d;
+  for (d = 22; d <= 120; d += 14) { sum += Math.abs(climbKap(s + d)); n++; }
+  return sum / n;
+}
+function climbKickExtend(uptoS) {
+  if (!climbKickRng) climbKickInit();
+  while (!climbKickStarts.length || climbKickStarts[climbKickStarts.length - 1] < uptoS) {
+    var nominal = climbKickStarts.length ?
+      climbKickStarts[climbKickStarts.length - 1] + 620 + 260 * climbKickRng() : 780;
+    var bestS = nominal, bestK = Infinity, s;
+    for (s = nominal; s <= nominal + 500; s += 10) {
+      var k = climbKickAvgKap(s);
+      if (k < bestK) { bestK = k; bestS = s; }
+      if (k < 0.0012) { bestS = s; break; }
+    }
+    climbKickStarts.push(bestS);
+  }
+}
+function climbKickerH(s, lat) {
+  if (Math.abs(lat) > CLIMB_KICK_HALF || s < 700) return 0;
+  climbKickExtend(s);
+  for (var i = climbKickStarts.length - 1; i >= 0 && climbKickStarts[i] > s - CLIMB_KICK_LEN - 1; i--) {
+    var ks = climbKickStarts[i];
+    if (s >= ks && s <= ks + CLIMB_KICK_LEN) {
+      var u = (s - ks) / CLIMB_KICK_LEN;
+      return CLIMB_KICK_H * 0.5 * (1 - Math.cos(2 * Math.PI * u));
+    }
+  }
+  return 0;
+}
+function climbNextKicker(s) {
+  climbKickExtend(s + 1);
+  for (var i = 0; i < climbKickStarts.length; i++) {
+    if (climbKickStarts[i] + CLIMB_KICK_LEN >= s) return climbKickStarts[i];
+  }
+  return Infinity;
+}
+/* The sliding sample window. CL.base is the absolute index of the first
+   stored sample (sample k sits at s = k * CLIMB_DS); the integrator
+   state (th, ix, iz, ih, is) lives at the head sample and only ever
+   advances, so the ribbon is deterministic and never regenerated. */
+var CL = null, CLGRID = {}, climbHashDirty = true, climbFallVoid = false;
+function climbResetGen() {
+  CL = { x: [0], z: [0], h: [0], tx: [0], tz: [-1], base: 0,
+         th: Math.PI, ix: 0, iz: 0, ih: 0, is: 0 };
+  climbKickInit();
+  climbFallVoid = false;
+  climbHashDirty = true;
+}
+function climbGen(uptoS) {
+  while (CL.is < uptoS) {
+    var sMid = CL.is + CLIMB_DS / 2;
+    CL.th += climbKap(sMid) * CLIMB_DS;
+    CL.ix += Math.sin(CL.th) * CLIMB_DS;
+    CL.iz += Math.cos(CL.th) * CLIMB_DS;
+    CL.ih += climbGradeTan(sMid) * CLIMB_DS;
+    CL.is += CLIMB_DS;
+    CL.x.push(CL.ix); CL.z.push(CL.iz); CL.h.push(CL.ih);
+    CL.tx.push(Math.sin(CL.th)); CL.tz.push(Math.cos(CL.th));
+  }
+  climbHashDirty = true;
+}
+function climbEnsure(uptoS) { if (CL.is < uptoS) climbGen(uptoS); }
+function climbTrim(beforeS) {
+  var drop = 0;
+  while (CL.x.length - drop > 120 && (CL.base + drop + 1) * CLIMB_DS < beforeS) drop++;
+  if (drop > 0) {
+    CL.x.splice(0, drop); CL.z.splice(0, drop); CL.h.splice(0, drop);
+    CL.tx.splice(0, drop); CL.tz.splice(0, drop);
+    CL.base += drop;
+    climbHashDirty = true;
+  }
+}
+function climbHash() {
+  if (!climbHashDirty) return;
+  CLGRID = {};
+  for (var i = 0; i < CL.x.length; i++) {
+    var key = Math.floor(CL.x[i] / 50) * 100000 + Math.floor(CL.z[i] / 50);
+    if (!CLGRID[key]) CLGRID[key] = [];
+    CLGRID[key].push(i);
+  }
+  climbHashDirty = false;
+}
+function climbNearestIdx(x, z) {
+  var cx = Math.floor(x / 50), cz = Math.floor(z / 50), ring, ix, iz, cell, i, idx;
+  var best = -1, bestD = Infinity;
+  for (ring = 0; ring <= 30; ring++) {
+    for (ix = cx - ring; ix <= cx + ring; ix++) {
+      for (iz = cz - ring; iz <= cz + ring; iz++) {
+        if (ring > 0 && ix > cx - ring && ix < cx + ring && iz > cz - ring && iz < cz + ring) continue;
+        cell = CLGRID[ix * 100000 + iz];
+        if (!cell) continue;
+        for (i = 0; i < cell.length; i++) {
+          idx = cell[i];
+          var dx = CL.x[idx] - x, dz = CL.z[idx] - z, d2 = dx * dx + dz * dz;
+          if (d2 < bestD) { bestD = d2; best = idx; }
+        }
+      }
+    }
+    if (best >= 0 && ring * 50 > Math.sqrt(bestD) + 50) break;
+  }
+  return best;
+}
+function climbProjSeg(i, x, z) {
+  var ax = CL.x[i], az = CL.z[i], bx = CL.x[i + 1], bz = CL.z[i + 1];
+  var abx = bx - ax, abz = bz - az, L2 = abx * abx + abz * abz || 1e-9;
+  var t = clamp(((x - ax) * abx + (z - az) * abz) / L2, 0, 1);
+  var px = ax + abx * t, pz = az + abz * t;
+  var dx = x - px, dz = z - pz;
+  var tl = Math.sqrt(L2), tx = abx / tl, tz = abz / tl;
+  var sx = tz, sz = -tx;
+  var s = (CL.base + i) * CLIMB_DS + t * CLIMB_DS;
+  return { dist: Math.sqrt(dx * dx + dz * dz), s: s,
+           lat: dx * sx + dz * sz, hC: CL.h[i] + (CL.h[i + 1] - CL.h[i]) * t,
+           bank: climbBankAt(s), tx: tx, tz: tz };
+}
+function climbProject(x, z) {
+  if (CL.x.length < 2) climbGen(CL.is + 200);
+  climbHash();
+  var near = climbNearestIdx(x, z), best = null, i;
+  if (near < 0) near = CL.x.length - 1;
+  if (near >= CL.x.length - 1) { // query at the head edge: grow, then re-search once
+    climbGen(CL.is + 400); climbHash();
+    var n2 = climbNearestIdx(x, z);
+    if (n2 >= 0) near = n2;
+  }
+  var lo = Math.max(0, near - 3), hi = Math.min(CL.x.length - 2, near + 3);
+  for (i = lo; i <= hi; i++) {
+    var pr = climbProjSeg(i, x, z);
+    if (!best || pr.dist < best.dist) best = pr;
+  }
+  if (!best) { // degenerate window; answer with the head frame
+    var li = CL.x.length - 1;
+    best = { dist: 1e9, s: (CL.base + li) * CLIMB_DS, lat: 1e9,
+             hC: CL.h[li], bank: 0, tx: CL.tx[li], tz: CL.tz[li] };
+  }
+  return best;
+}
+function climbHAt(s) {
+  var f = clamp(s / CLIMB_DS - CL.base, 0, CL.h.length - 1.001);
+  var i = Math.floor(f), t = f - i;
+  return CL.h[i] + (CL.h[i + 1] - CL.h[i]) * t;
+}
+function climbPointAt(s) {
+  if (s > CL.is) climbGen(s + 100);
+  var f = clamp(s / CLIMB_DS - CL.base, 0, CL.x.length - 1.001);
+  var i = Math.floor(f), t = f - i;
+  var tx = CL.tx[i] + (CL.tx[i + 1] - CL.tx[i]) * t, tz = CL.tz[i] + (CL.tz[i + 1] - CL.tz[i]) * t;
+  var tl = Math.sqrt(tx * tx + tz * tz) || 1; tx /= tl; tz /= tl;
+  return { x: CL.x[i] + (CL.x[i + 1] - CL.x[i]) * t, z: CL.z[i] + (CL.z[i + 1] - CL.z[i]) * t,
+           h: CL.h[i] + (CL.h[i + 1] - CL.h[i]) * t, tx: tx, tz: tz, sx: tz, sz: -tx,
+           bank: climbBankAt(s), width: climbWidthAt(s), kap: climbKap(s) };
+}
+/* The ribbon plane extended sideways forever (used for gradients, the
+   shadow, and the fall test). The SURFACE only exists on the ribbon. */
+function climbHeightExt(x, z) {
+  var pr = climbProject(x, z);
+  return pr.hC + pr.lat * pr.bank + climbKickerH(pr.s, pr.lat);
+}
+function climbSurfAt(x, z) {
+  if (climbFallVoid) return surf(-1e9, 0, 0, 'void', 0);
+  var pr = climbProject(x, z);
+  if (Math.abs(pr.lat) > climbWidthAt(pr.s) / 2) return surf(-1e9, 0, 0, 'void', 0);
+  var e = 0.6;
+  var h = pr.hC + pr.lat * pr.bank + climbKickerH(pr.s, pr.lat);
+  var gx = (climbHeightExt(x + e, z) - climbHeightExt(x - e, z)) / (2 * e);
+  var gz = (climbHeightExt(x, z + e) - climbHeightExt(x, z - e)) / (2 * e);
+  return surf(h, gx, gz, 'climb', 0);
+}
+var CLIMB = {
+  start: { x: 0, z: 0, heading: Math.PI },
+  surfAt: climbSurfAt, heightAt: climbHeightExt, project: climbProject,
+  pointAt: climbPointAt, widthAt: climbWidthAt, kapAt: climbKap,
+  kickerH: climbKickerH, nextKicker: climbNextKicker,
+  ensure: climbEnsure, reset: climbResetGen,
+  sampleCount: function () { return CL ? CL.x.length : 0; },
+  headS: function () { return CL ? CL.is : 0; }
+};
+climbResetGen();
+
 /* ---------------- the car simulation ---------------- */
 var WHEEL = 0.35; // car origin height above its surface
 var ZERO_INPUT = { steer: 0, brake: false, handbrake: false, airPitch: 0, airRoll: 0, stabilize: false, tap: false };
@@ -1074,7 +1313,7 @@ function createGame(tune) {
   var g = { tune: tune, car: car, scoring: scoring, clock: clock, coins: coins,
             now: 0, coinsCollected: 0, events: [], started: false, over: false,
             mode: 'attack', heat: 0, heatInfo: null, breather: false, breatherT: 0,
-            shuffleOn: false, seed: 1, track: null };
+            shuffleOn: false, seed: 1, track: null, climb: null };
 
   /* World dispatch: the arena is the default and its surface functions are
      called exactly as before. In Track mode the same physics runs on the
@@ -1082,9 +1321,9 @@ function createGame(tune) {
      wall clamp widens to the course bound, and the arena's stacked-side
      collisions (rim, deck, Rail) simply do not exist. */
   var world = 'arena', wallLim = WALL;
-  function surfList(x, z) { return world === 'course' ? [courseSurfAt(x, z)] : surfacesAt(x, z); }
-  function surfTerrain(x, z) { return world === 'course' ? courseSurfAt(x, z) : terrainAt(x, z); }
-  function surfBelow(x, z, y) { return world === 'course' ? courseSurfAt(x, z) : groundBelowAt(x, z, y); }
+  function surfList(x, z) { return world === 'course' ? [courseSurfAt(x, z)] : (world === 'climb' ? [climbSurfAt(x, z)] : surfacesAt(x, z)); }
+  function surfTerrain(x, z) { return world === 'course' ? courseSurfAt(x, z) : (world === 'climb' ? climbSurfAt(x, z) : terrainAt(x, z)); }
+  function surfBelow(x, z, y) { return world === 'course' ? courseSurfAt(x, z) : (world === 'climb' ? climbSurfAt(x, z) : groundBelowAt(x, z, y)); }
 
   function placeCar() {
     car.x = 0; car.z = 470; car.heading = Math.PI; car.speed = 0;
@@ -1108,6 +1347,17 @@ function createGame(tune) {
     car.accPitch = 0; car.accRoll = 0; car.accYaw = 0; car.rightT = 0;
   }
 
+  function placeCarClimb() {
+    var st = CLIMB.start;
+    car.x = st.x; car.z = st.z; car.heading = st.heading; car.speed = 0;
+    car.vx = 0; car.vy = 0; car.vz = 0; car.wx = 0; car.wy = 0; car.wz = 0;
+    car.surf = climbSurfAt(car.x, car.z);
+    car.y = car.surf.h + WHEEL;
+    car.q = groundQuat(car.heading, car.surf.nx, car.surf.ny, car.surf.nz);
+    car.mode = 'ground'; car.airTime = 0; car.wings = false; car.corkscrew = false;
+    car.accPitch = 0; car.accRoll = 0; car.accYaw = 0; car.rightT = 0;
+  }
+
   function beginHeat(n, fresh) {
     var L = ladderHeat(n);
     g.heat = n; g.heatInfo = L;
@@ -1120,9 +1370,9 @@ function createGame(tune) {
   g.beginHeat = beginHeat;
   g.reset = function (opts) {
     opts = opts || {};
-    g.mode = opts.mode === 'ladder' ? 'ladder' : (opts.mode === 'track' ? 'track' : 'attack');
-    world = g.mode === 'track' ? 'course' : 'arena';
-    wallLim = world === 'course' ? COURSE.bound : WALL;
+    g.mode = opts.mode === 'ladder' ? 'ladder' : (opts.mode === 'track' ? 'track' : (opts.mode === 'climb' ? 'climb' : 'attack'));
+    world = g.mode === 'track' ? 'course' : (g.mode === 'climb' ? 'climb' : 'arena');
+    wallLim = world === 'course' ? COURSE.bound : (world === 'climb' ? 1e7 : WALL);
     g.shuffleOn = !!opts.shuffle;
     g.seed = (opts.seed | 0) || 1;
     scoring.reset();
@@ -1130,6 +1380,8 @@ function createGame(tune) {
       coins = COURSE_COINS.map(function (c) {
         return { x: c.x, y: c.y, z: c.z, tier: c.tier, taken: false };
       });
+    } else if (g.mode === 'climb') {
+      coins = []; // climb coins are dealt by climbUpdate as the ramp unrolls
     } else {
       coins = dealCoins(g.seed, g.shuffleOn).map(function (c) {
         return { x: c.x, y: c.y, z: c.z, tier: c.tier, taken: false };
@@ -1137,7 +1389,7 @@ function createGame(tune) {
     }
     g.coins = coins;
     g.coinsCollected = 0; g.events = []; g.now = 0; g.over = false; g.started = true;
-    g.breather = false; g.breatherT = 0; g.track = null;
+    g.breather = false; g.breatherT = 0; g.track = null; g.climb = null;
     if (g.mode === 'ladder') { beginHeat(opts.heat || 1, true); }
     else if (g.mode === 'track') {
       g.heat = 0; g.heatInfo = null;
@@ -1146,6 +1398,16 @@ function createGame(tune) {
       g.track = { s: 0, lat: 0, percent: 0, gatesHit: 0, finished: false, time: 0,
                   gateHit: COURSE_GATES.map(function () { return false; }) };
       placeCarCourse(); clock.start();
+    }
+    else if (g.mode === 'climb') {
+      g.heat = 0; g.heatInfo = null;
+      setGates({ rim: false, deck: false });
+      clock = createRunClock(1e9); g.clock = clock; // no clock pressure: the ramp is the opponent
+      CLIMB.reset();
+      CLIMB.ensure(1800);
+      g.climb = { s: 0, dist: 0, height: 0, falling: false, fallT: 0,
+                  best: opts.best || 0, bestCrossed: false, nextCoinS: 250 };
+      placeCarClimb(); clock.start();
     }
     else {
       g.heat = 0; g.heatInfo = null;
@@ -1297,7 +1559,13 @@ function createGame(tune) {
     var list = surfList(car.x, car.z), cand = list[list.length - 1], i2;
     for (i2 = 0; i2 < list.length; i2++) { if (list[i2].h <= prevBottom + allow) { cand = list[i2]; break; } }
     var newBottom = my - WHEEL;
-    if (cand.h >= newBottom - 0.001) {
+    /* Contact tolerance: 1 mm on the arena/course (analytic or wide
+       surfaces, deficits are exact). The Climb ribbon is a sampled
+       polygon: its sagitta ripple is ~0.6 mm, so the climb world gets
+       3 mm of suspension travel. A real crest (the kicker humps) sheds
+       ~7 mm per substep and still launches; the ribbon edge is void
+       and still falls. */
+    if (cand.h >= newBottom - (world === 'climb' ? 0.003 : 0.001)) {
       car.y = cand.h + WHEEL; car.surf = cand;
       groundSetQ(cand, sdt);
     } else if (newBottom - cand.h <= 0.35 && Math.abs(car.speed) <= 8) {
@@ -1477,7 +1745,13 @@ function createGame(tune) {
           var up2 = qRotate(car.q, v3(0, 1, 0));
           var cosA2 = clamp(up2.x * s.nx + up2.y * s.ny + up2.z * s.nz, -1, 1);
           var ang2 = Math.acos(cosA2) * 180 / Math.PI;
-          if (vn < 0 && ang2 <= 45 && -vn <= 0.65 * spd) {
+          /* In Climb the only surface is the ribbon top, a driving
+             surface: a face meeting there is a touchdown, never a
+             graze. (With the graze, a kicker flight that met the rising
+             ribbon while still moving up relative to the world surfed
+             the slope in air mode, steeringless, until it drifted off
+             the edge.) */
+          if (vn < 0 && ang2 <= 45 && -vn <= 0.65 * spd && world !== 'climb') {
             car.y = s.h + WHEEL;
             car.vx -= vn * s.nx; car.vy -= vn * s.ny; car.vz -= vn * s.nz;
             grazed = true;
@@ -1487,7 +1761,7 @@ function createGame(tune) {
       }
       if (!grazed && world === 'arena') sideCollideAir(spx, spz);
     }
-    if (car.y < -40) land(surfBelow(car.x, car.z, 1e6)); // safety net (below the bowl's -10 floor), should not happen
+    if (car.y < -40 && world !== 'climb') land(surfBelow(car.x, car.z, 1e6)); // safety net (below the bowl's -10 floor), should not happen; in Climb a fall is the run ending, never a landing
   }
 
   function collectCoins() {
@@ -1542,6 +1816,62 @@ function createGame(tune) {
                       biggest: scoring.state.biggestBank, percent: 100 });
     }
   }
+  /* Endless Climb progress: distance is the max ribbon distance reached
+     while on or over the ramp; coins are dealt ahead in 3-coin groups
+     every 250 m and dropped behind; the saved-best line fires once. A
+     fall is called when the airborne car is off the ribbon laterally,
+     falling, and more than 6 m below the ribbon plane (or 25 m below it
+     by any path). Once called, every climb surface voids (climbFallVoid)
+     so the car can only fall: 2.4 s of falling ends the run and the car
+     freezes in the 'fallen' mode, outside the ground/air dispatch. */
+  function climbUpdate(dt) {
+    var cl = g.climb;
+    if (!cl) return;
+    var frame = climbProject(car.x, car.z);
+    cl.s = frame.s;
+    var halfW = climbWidthAt(frame.s) / 2;
+    if (car.mode === 'ground' || Math.abs(frame.lat) <= halfW + 2) {
+      if (frame.s > cl.dist) cl.dist = frame.s;
+    }
+    cl.height = climbHAt(cl.dist);
+    CLIMB.ensure(cl.dist + 1600);
+    climbTrim(cl.s - 500);
+    while (cl.nextCoinS < cl.dist + 900) {
+      for (var o = -5; o <= 5; o += 5) {
+        var cs = cl.nextCoinS + o;
+        var p = climbPointAt(cs);
+        coins.push({ x: p.x, y: climbHeightExt(p.x, p.z) + 3.6, z: p.z, tier: 'climb', s: cs, taken: false });
+      }
+      cl.nextCoinS += 250;
+    }
+    for (var ci = coins.length - 1; ci >= 0; ci--) {
+      if (coins[ci].s !== undefined && coins[ci].s < cl.dist - 150) coins.splice(ci, 1);
+    }
+    if (!cl.bestCrossed && cl.best > 0 && cl.dist >= cl.best) {
+      cl.bestCrossed = true;
+      g.events.push({ type: 'bestCrossed', dist: cl.dist });
+    }
+    if (!cl.falling && car.mode === 'air') {
+      var bottom = car.y - WHEEL;
+      var surfH = climbHeightExt(car.x, car.z);
+      if ((Math.abs(frame.lat) > halfW && car.vy < 0 && surfH - bottom > 6) || bottom < surfH - 25) {
+        cl.falling = true; cl.fallT = 0;
+        climbFallVoid = true;
+        g.events.push({ type: 'fallStart', dist: cl.dist });
+      }
+    }
+    if (cl.falling) {
+      cl.fallT += dt;
+      if (cl.fallT >= 2.4) {
+        g.over = true;
+        car.mode = 'fallen';
+        g.events.push({ type: 'runover', mode: 'climb', distance: cl.dist, height: cl.height,
+                        coins: g.coinsCollected, score: scoring.state.score,
+                        bestCombo: scoring.state.maxMult, biggest: scoring.state.biggestBank,
+                        newBest: cl.dist > cl.best });
+      }
+    }
+  }
   g.step = function (dt, input) {
     if (!g.started) return;
     g.now += dt;
@@ -1556,6 +1886,7 @@ function createGame(tune) {
     else if (car.mode === 'air') stepAir(dt, inp);
     collectCoins();
     if (g.mode === 'track' && !g.over) trackUpdate();
+    if (g.mode === 'climb' && !g.over) climbUpdate(dt);
     if (g.over) return;
     if (g.mode === 'ladder') {
       if (clock.phase === 'running' && scoring.state.score >= g.heatInfo.target) {
@@ -1599,6 +1930,7 @@ global.CF = {
   setGates: setGates, getGates: getGates,
   FEEDERS: FEEDERS, RAIL: RAIL, BOWL: BOWL, WALL: WALL, RIM_EDGE: RIM_EDGE,
   COURSE: COURSE, COURSE_COINS: COURSE_COINS, COURSE_GATES: COURSE_GATES, COURSE_RAMPS: COURSE_RAMPS,
+  CLIMB: CLIMB,
   courseSurfAt: courseSurfAt, courseBaseSurfAt: courseBaseSurfAt,
   courseHeightAt: courseHeightAt, projectToCourse: projectToCourse, coursePointAt: coursePointAt,
   createScoring: createScoring, createRunClock: createRunClock, createGame: createGame
@@ -1641,6 +1973,7 @@ scene.add(sun);
    gradient), a halftone dot field that densifies toward the horizon, flat
    graphic clouds with teal undersides, and a flat distant range sitting on
    the horizon line. Daytime comic sky: no stars, no black anywhere. ------ */
+var skyDome = null; // the frame loop recenters it on the car in Climb, where a run can travel kilometers from the origin
 (function buildSky() {
   var cv = document.createElement('canvas'); cv.width = 1024; cv.height = 512;
   var ctx = cv.getContext('2d');
@@ -1693,6 +2026,7 @@ scene.add(sun);
   var dome = new THREE.Mesh(new THREE.SphereGeometry(3000, 24, 14),
     new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false }));
   scene.add(dome);
+  skyDome = dome;
 })();
 
 /* ---------- CEL EMPIRE materials: every lit surface is a MeshToonMaterial
@@ -2013,19 +2347,25 @@ var shadowMesh;
 var courseGroup = new THREE.Group();
 courseGroup.visible = false;
 scene.add(courseGroup);
+var climbGroup = new THREE.Group();
+climbGroup.visible = false;
+scene.add(climbGroup);
 var arenaObjs = scene.children.filter(function (o) {
-  if (o === carGroup || o === shadowMesh || o === courseGroup || o === terrainMesh) return false;
+  if (o === carGroup || o === shadowMesh || o === courseGroup || o === climbGroup || o === terrainMesh) return false;
   if (o.isLight) return false;
   if (coinMeshes.indexOf(o) >= 0 || coinPillars.indexOf(o) >= 0) return false;
-  if (o.geometry && o.geometry.type === 'SphereGeometry') return false; // the sky dome stays for both worlds
+  if (o.geometry && o.geometry.type === 'SphereGeometry') return false; // the sky dome stays for every world
   return true;
 });
-var worldTrack = false;
-function setWorld(track) {
-  worldTrack = track;
-  for (var i = 0; i < arenaObjs.length; i++) arenaObjs[i].visible = !track;
-  if (terrainMesh) terrainMesh.visible = !track;
-  courseGroup.visible = track;
+var worldName = 'arena';
+function setWorld(mode) {
+  worldName = mode === 'track' ? 'track' : (mode === 'climb' ? 'climb' : 'arena');
+  var arena = worldName === 'arena';
+  for (var i = 0; i < arenaObjs.length; i++) arenaObjs[i].visible = arena;
+  if (terrainMesh) terrainMesh.visible = arena;
+  courseGroup.visible = worldName === 'track';
+  climbGroup.visible = worldName === 'climb';
+  if (worldName === 'climb') resetClimbPool();
 }
 (function buildCourse() {
   var step = 6, n = Math.floor(CF.COURSE.length / step);
@@ -2156,6 +2496,157 @@ function setWorld(track) {
   makeGate(CF.COURSE.length, 'FINISH', '#ffc44d', 14);
 })();
 
+/* ---------- climb world: the Endless Climb (shown only in Climb mode) ----------
+   A fixed pool of ribbon segments, 100 m each, recycled from the tail
+   to the head as the car climbs: the pool size never changes, so the
+   per-frame cost at 15 km equals the cost at 100 m. Vertex heights come
+   from the same surface math as physics (CF.CLIMB.heightAt), so the
+   visible ramp is the ramp the car drives on. Below it all, a bright
+   halftone cloud sea follows the car (recycled texture offset); a fall
+   ends with the car sinking toward it, never into darkness. */
+var CLIMB_SEG_LEN = 100, CLIMB_POOL_N = 22, CLIMB_ROWS = 41, CLIMB_COLS = 7;
+var climbSegs = [], climbPoolS = 0;
+var climbColHex = [0x11604a, 0x2b2320, 0xd95f38, 0xd95f38, 0xd95f38, 0x2b2320, 0x11604a];
+function buildClimbSegGeo(seg, s0) {
+  var pos = seg.geo.attributes.position.array;
+  var colA = seg.geo.attributes.color.array;
+  var uvA = seg.geo.attributes.uv.array;
+  var cc = new THREE.Color();
+  var vi = 0;
+  for (var r = 0; r < CLIMB_ROWS; r++) {
+    var s = s0 + r * (CLIMB_SEG_LEN / (CLIMB_ROWS - 1)); // rows every 2.5 m: the mesh tracks the physics surface over the kicker humps to ~7 cm
+    var p = CF.CLIMB.pointAt(s);
+    var hw = p.width / 2;
+    var lats = [-(hw + 7), -hw, -(hw - 0.8), 0, hw - 0.8, hw, hw + 7];
+    for (var c = 0; c < CLIMB_COLS; c++) {
+      var lat = lats[c];
+      var x = p.x + p.sx * lat, z = p.z + p.sz * lat;
+      var y = p.h + lat * p.bank + CF.CLIMB.kickerH(s, lat) + 0.03; // the heightfield formula, from the row frame
+      if (c === 0 || c === CLIMB_COLS - 1) y -= 2.6; // the skirt falls away at the sides: air below the ink line
+      pos[vi * 3] = x; pos[vi * 3 + 1] = y; pos[vi * 3 + 2] = z;
+      var hex = climbColHex[c];
+      if (c >= 2 && c <= 4 && CF.CLIMB.kickerH(s, lat) > 0.05) hex = 0xd98e32; // kicker humps read amber
+      cc.setHex(hex);
+      colA[vi * 3] = cc.r; colA[vi * 3 + 1] = cc.g; colA[vi * 3 + 2] = cc.b;
+      uvA[vi * 2] = s / 30; uvA[vi * 2 + 1] = lat / 30;
+      vi++;
+    }
+  }
+  seg.geo.attributes.position.needsUpdate = true;
+  seg.geo.attributes.color.needsUpdate = true;
+  seg.geo.attributes.uv.needsUpdate = true;
+  seg.geo.computeVertexNormals();
+  seg.s0 = s0;
+}
+(function buildClimbPool() {
+  for (var i = 0; i < CLIMB_POOL_N; i++) {
+    var nv = CLIMB_ROWS * CLIMB_COLS;
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(nv * 3), 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(nv * 3), 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(nv * 2), 2));
+    var idx = [];
+    for (var r = 0; r < CLIMB_ROWS - 1; r++) for (var c = 0; c < CLIMB_COLS - 1; c++) {
+      var a = r * CLIMB_COLS + c, b = a + 1, d = a + CLIMB_COLS, e = d + 1;
+      idx.push(a, d, b, b, d, e); // same winding as the course ribbon
+    }
+    geo.setIndex(idx);
+    var mesh = new THREE.Mesh(geo, terrainMat);
+    mesh.frustumCulled = false; // segments are rebuilt in place as the pool recycles
+    climbGroup.add(mesh);
+    climbSegs.push({ mesh: mesh, geo: geo, s0: -1 });
+  }
+})();
+function resetClimbPool() {
+  climbPoolS = 0;
+  for (var i = 0; i < climbSegs.length; i++) buildClimbSegGeo(climbSegs[i], i * CLIMB_SEG_LEN);
+}
+function updateClimbPool() {
+  if (!game.climb) return;
+  while (game.climb.dist > climbPoolS + 400) {
+    var seg = climbSegs.shift();
+    buildClimbSegGeo(seg, climbPoolS + CLIMB_POOL_N * CLIMB_SEG_LEN);
+    climbSegs.push(seg);
+    climbPoolS += CLIMB_SEG_LEN;
+  }
+}
+/* the cloud sea: a bright printed plane that follows the car; its
+   texture offset recycles so the pattern stays fixed in the world */
+var seaTex = null, seaMesh = null;
+(function buildSea() {
+  var cv = document.createElement('canvas'); cv.width = 512; cv.height = 512;
+  var ctx = cv.getContext('2d');
+  ctx.fillStyle = '#dff7ec'; ctx.fillRect(0, 0, 512, 512);
+  var seed = 31;
+  function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+  for (var i = 0; i < 110; i++) {
+    var bx = rnd() * 512, by = rnd() * 512, br = 18 + rnd() * 52;
+    ctx.fillStyle = rnd() > 0.5 ? 'rgba(255,255,255,0.55)' : 'rgba(168,224,205,0.50)';
+    for (var ox = -512; ox <= 512; ox += 512) for (var oy = -512; oy <= 512; oy += 512) {
+      ctx.beginPath(); ctx.ellipse(bx + ox, by + oy, br, br * 0.55, 0, 0, 6.2832); ctx.fill();
+    }
+  }
+  ctx.fillStyle = 'rgba(31,122,95,0.16)';
+  for (var hy = 8; hy < 512; hy += 16) {
+    var hoff = ((hy / 16) % 2) * 8;
+    for (var hx = hoff; hx < 512; hx += 16) { ctx.beginPath(); ctx.arc(hx, hy, 1.6, 0, 6.2832); ctx.fill(); }
+  }
+  seaTex = new THREE.CanvasTexture(cv);
+  seaTex.wrapS = seaTex.wrapT = THREE.RepeatWrapping;
+  seaTex.repeat.set(5, 5);
+  seaMesh = new THREE.Mesh(new THREE.PlaneGeometry(3600, 3600), new THREE.MeshBasicMaterial({ map: seaTex }));
+  seaMesh.rotation.x = -Math.PI / 2;
+  seaMesh.visible = false;
+  scene.add(seaMesh);
+})();
+/* the best line: a gold strip across the ribbon at the saved best
+   distance, with an ink pole and a gold flag at the right edge */
+var bestGroup = new THREE.Group();
+climbGroup.add(bestGroup);
+var bestLineS = -1;
+function syncBestLine() {
+  var target = (game.mode === 'climb' && game.climb) ? game.climb.best : 0;
+  var inWin = target > 0 && target > climbPoolS - 60 && target < climbPoolS + CLIMB_POOL_N * CLIMB_SEG_LEN + 60;
+  bestGroup.visible = !!inWin;
+  if (!inWin || target === bestLineS) return;
+  bestLineS = target;
+  while (bestGroup.children.length) {
+    var ch = bestGroup.children[0];
+    bestGroup.remove(ch);
+    if (ch.geometry) ch.geometry.dispose();
+    if (ch.material && ch.material.dispose) ch.material.dispose();
+  }
+  var p = CF.CLIMB.pointAt(target);
+  var hw = p.width / 2;
+  var latsB = [-hw, -hw / 2, 0, hw / 2, hw];
+  var posA = [], idxA = [];
+  [-1.1, 1.1].forEach(function (ds) {
+    var pp = CF.CLIMB.pointAt(target + ds);
+    latsB.forEach(function (lat) {
+      var x = pp.x + pp.sx * lat, z = pp.z + pp.sz * lat;
+      posA.push(x, CF.CLIMB.heightAt(x, z) + 0.07, z);
+    });
+  });
+  for (var c = 0; c < latsB.length - 1; c++) {
+    var a = c, b = c + 1, d = c + latsB.length, e = d + 1;
+    idxA.push(a, d, b, b, d, e);
+  }
+  var gStrip = new THREE.BufferGeometry();
+  gStrip.setAttribute('position', new THREE.BufferAttribute(new Float32Array(posA), 3));
+  gStrip.setIndex(idxA);
+  gStrip.computeVertexNormals();
+  bestGroup.add(new THREE.Mesh(gStrip, new THREE.MeshBasicMaterial({ color: 0xffc44d, side: THREE.DoubleSide })));
+  var ex = p.x + p.sx * hw, ez = p.z + p.sz * hw, ey = CF.CLIMB.heightAt(ex, ez);
+  var pole = new THREE.Mesh(new THREE.BoxGeometry(0.18, 6, 0.18), lam(INK_HEX));
+  pole.position.set(ex, ey + 3, ez);
+  bestGroup.add(pole);
+  var flag = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.4),
+    new THREE.MeshBasicMaterial({ color: 0xffc44d, side: THREE.DoubleSide }));
+  flag.position.set(ex - p.sx * 1.25, ey + 5.25, ez - p.sz * 1.25);
+  flag.rotation.y = Math.atan2(p.tx, p.tz);
+  bestGroup.add(flag);
+}
+
 /* ---------- tuning (persisted, live) ---------- */
 function loadJSON(key) { try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
 function saveJSON(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
@@ -2280,17 +2771,23 @@ var trackBests = { time: 0 };
   var t = parseFloat(localStorage.getItem('cf-best-track-time') || '0');
   if (!isNaN(t) && t > 0) trackBests.time = t;
 })();
+var climbBests = { dist: 0 };
+(function loadClimbBests() {
+  var d = parseFloat(localStorage.getItem('cf-best-climb') || '0');
+  if (!isNaN(d) && d > 0) climbBests.dist = d;
+})();
 function fmtTime(sec) {
   var m = Math.floor(sec / 60), s = sec - m * 60;
   return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1);
 }
 function syncMenuBests() {
-  var a = document.getElementById('attackBest'), l = document.getElementById('ladderBest'), t = document.getElementById('trackBest');
+  var a = document.getElementById('attackBest'), l = document.getElementById('ladderBest'), t = document.getElementById('trackBest'), cb = document.getElementById('climbBest');
   if (a) a.textContent = bests.score > 0 ?
     'BEST ' + bests.score.toLocaleString() + ' · COMBO x' + bests.combo.toFixed(1) + ' · COINS ' + bests.coins + '/24' : 'NO RUNS YET';
   if (l) l.textContent = ladderBests.heat > 0 ?
     'BEST · HEAT ' + ladderBests.heat + ' · ' + ladderBests.score.toLocaleString() : 'NO RUNS YET';
   if (t) t.textContent = trackBests.time > 0 ? 'BEST · ' + fmtTime(trackBests.time) : 'NO FINISH YET';
+  if (cb) cb.textContent = climbBests.dist > 0 ? 'BEST · ' + Math.floor(climbBests.dist).toLocaleString() + ' m' : 'NO RUNS YET';
 }
 syncMenuBests();
 
@@ -2367,7 +2864,7 @@ function buildInput() {
 
 /* ---------- HUD ---------- */
 var el = {};
-['score', 'pending', 'clock', 'coins', 'speed', 'comboMult', 'fuse', 'banner', 'heatLabel', 'trackHud', 'gateLabel', 'prog'].forEach(function (id) { el[id] = document.getElementById(id); });
+['score', 'pending', 'clock', 'coins', 'speed', 'comboMult', 'fuse', 'banner', 'heatLabel', 'trackHud', 'gateLabel', 'prog', 'climbHud', 'climbDist', 'climbHeight', 'hudTopCenter'].forEach(function (id) { el[id] = document.getElementById(id); });
 var bannerUntil = 0, bannerSticky = false, final10Shown = false;
 function showBanner(text, cls, dur) {
   el.banner.textContent = text;
@@ -2394,7 +2891,13 @@ function drainEvents() {
       }
     } else if (ev.type === 'coin') {
       buzz(8);
-      if (performance.now() > bannerUntil) showBanner('COIN ' + ev.count + '/' + game.coins.length + (ev.timeBonus ? ' · +' + ev.timeBonus + 's' : ''), 'small', 700);
+      if (performance.now() > bannerUntil) showBanner(game.mode === 'climb' ? 'COIN ' + ev.count :
+        'COIN ' + ev.count + '/' + game.coins.length + (ev.timeBonus ? ' · +' + ev.timeBonus + 's' : ''), 'small', 700);
+    } else if (ev.type === 'bestCrossed') {
+      buzz(15);
+      showBanner('BEST DISTANCE!', '', 1400);
+    } else if (ev.type === 'fallStart') {
+      showBanner('OFF THE RAMP', 'bad', 1300);
     } else if (ev.type === 'gate') {
       buzz(8);
       showBanner('GATE ' + ev.n + '/' + ev.total + ' · +8s', 'small', 900);
@@ -2446,6 +2949,23 @@ function onRunOver(ev) {
       'SCORE <b>' + ev.score.toLocaleString() + '</b>';
     document.getElementById('tallyBests').textContent =
       trackBests.time > 0 ? 'TRACK BEST · ' + fmtTime(trackBests.time) : 'NO FINISH YET';
+    document.getElementById('tallyScreen').style.display = 'flex';
+    syncMenuBests();
+    return;
+  }
+  if (ev.mode === 'climb') {
+    if (ev.newBest) { climbBests.dist = ev.distance; try { localStorage.setItem('cf-best-climb', String(ev.distance)); } catch (e) {} }
+    document.getElementById('tallyTitle').textContent = 'THE CLIMB';
+    nbEl.style.display = ev.newBest ? 'block' : 'none';
+    scoreEl.textContent = Math.floor(ev.distance).toLocaleString() + ' m';
+    scoreEl.className = ev.newBest ? 'gold' : '';
+    document.getElementById('tallyRows').innerHTML =
+      'HEIGHT <b>' + Math.floor(ev.height).toLocaleString() + ' m</b><br>' +
+      'COINS <b>' + ev.coins + '</b><br>' +
+      'BIGGEST STUNT <b>' + ev.biggest.toLocaleString() + '</b><br>' +
+      'SCORE <b>' + ev.score.toLocaleString() + '</b>';
+    document.getElementById('tallyBests').textContent =
+      'BEST · ' + Math.floor(climbBests.dist).toLocaleString() + ' m';
     document.getElementById('tallyScreen').style.display = 'flex';
     syncMenuBests();
     return;
@@ -2503,7 +3023,17 @@ function updateHUD() {
     el.banner.textContent = 'LAND IT'; el.banner.className = 'hud'; el.banner.style.opacity = '1'; bannerSticky = true;
   } else if (bannerSticky) { bannerSticky = false; el.banner.style.opacity = '0'; }
   else if (performance.now() > bannerUntil) el.banner.style.opacity = '0';
-  el.coins.textContent = '● ' + game.coinsCollected + '/' + game.coins.length;
+  el.coins.textContent = game.mode === 'climb' ? '● ' + game.coinsCollected :
+    '● ' + game.coinsCollected + '/' + game.coins.length;
+  if (game.mode === 'climb' && game.climb) {
+    el.climbHud.style.display = 'block';
+    el.hudTopCenter.style.display = 'none'; // no clock on the climb: distance is the headline
+    el.climbDist.textContent = Math.floor(game.climb.dist).toLocaleString() + ' m';
+    el.climbHeight.textContent = 'HEIGHT ' + Math.floor(game.climb.height).toLocaleString() + ' m';
+  } else {
+    el.climbHud.style.display = 'none';
+    el.hudTopCenter.style.display = '';
+  }
   if (game.mode === 'track' && game.track) {
     el.trackHud.style.display = 'block';
     el.gateLabel.textContent = 'GATES ' + game.track.gatesHit + '/' + CF.COURSE.gates.length;
@@ -2544,8 +3074,9 @@ function startRun(mode) {
   final10Shown = false;
   setHeatFog(0);
   var seed = settings.shuffle ? (Date.now() % 2147483646) + 1 : 1;
-  game.reset({ mode: mode, shuffle: settings.shuffle, seed: seed });
-  setWorld(mode === 'track');
+  game.reset({ mode: mode, shuffle: settings.shuffle, seed: seed, best: mode === 'climb' ? climbBests.dist : 0 });
+  fallRot = 0;
+  setWorld(mode);
   document.getElementById('pauseBtn').style.display = 'flex';
   countdown = 3; goUntil = 0;
   cdEl.textContent = '3'; cdEl.style.display = 'block';
@@ -2554,6 +3085,7 @@ function startRun(mode) {
 document.getElementById('startBtn').addEventListener('click', function () { startRun('attack'); });
 document.getElementById('ladderBtn').addEventListener('click', function () { startRun('ladder'); });
 document.getElementById('trackBtn').addEventListener('click', function () { startRun('track'); });
+document.getElementById('climbBtn').addEventListener('click', function () { startRun('climb'); });
 document.getElementById('againBtn').addEventListener('click', function () { startRun(currentMode); });
 document.getElementById('menuBtn').addEventListener('click', quitToMenu);
 document.getElementById('howtoBtn').addEventListener('click', function () { document.getElementById('howtoPanel').classList.add('open'); });
@@ -2573,8 +3105,10 @@ function quitToMenu() {
   document.getElementById('tallyScreen').style.display = 'none';
   document.getElementById('pauseBtn').style.display = 'none';
   document.getElementById('settingsPanel').classList.remove('open');
+  el.climbHud.style.display = 'none';
+  el.hudTopCenter.style.display = '';
   game.started = false; game.over = false;
-  setWorld(false);
+  setWorld('arena');
   setHeatFog(0);
   CFAudio.visibility(true);                      /* suspend: no music at the menu */
   syncMenuBests();
@@ -2654,6 +3188,7 @@ window.addEventListener('resize', resize);
 resize();
 
 var last = performance.now(), acc = 0, STEP = 1 / 120;
+var fallRot = 0; // shell-side tumble angle while a climb fall plays out
 function frame(nowMs) {
   requestAnimationFrame(frame);
   var dt = Math.min(0.05, (nowMs - last) / 1000); last = nowMs;
@@ -2671,15 +3206,21 @@ function frame(nowMs) {
     tapQueued = false;
     drainEvents();
     syncGates();
-    if (worldTrack) { // syncGates can re-show arena pieces; the course world stays hidden until quit
+    if (worldName !== 'arena') { // syncGates can re-show arena pieces; the swapped world stays hidden until quit
       for (var wi = 0; wi < arenaObjs.length; wi++) arenaObjs[wi].visible = false;
       if (terrainMesh) terrainMesh.visible = false;
+      courseGroup.visible = worldName === 'track';
+      climbGroup.visible = worldName === 'climb';
     }
     CFAudio.frame(game, input);
   }
   var car = game.car;
   carGroup.position.set(car.x, car.y - 0.35, car.z);
   carGroup.quaternion.set(car.q[0], car.q[1], car.q[2], car.q[3]);
+  if (game.climb && game.climb.falling) { // the fall: a slow tumble into the cloud sea, layered over the physics orientation
+    fallRot += dt * 1.4;
+    carGroup.rotateX(fallRot);
+  }
   var wingTarget = car.wings ? 1 : 0;
   if (!game.started) wingTarget = reducedMotion ? 1 : 0.5 + 0.5 * Math.sin(nowMs * 0.00045); // attract: wings breathe on the pad
   wingT += (wingTarget - wingT) * (1 - Math.exp(-dt * (game.started ? 6 : 1.5)));
@@ -2707,12 +3248,29 @@ function frame(nowMs) {
       pil.material.opacity = CF.clamp((pdist - 30) / 120, 0, 1) * 0.32; // fades out as you close in
     }
   }
-  var sBelow = game.mode === 'track' ? CF.courseSurfAt(car.x, car.z) : CF.groundBelowAt(car.x, car.z, car.y - 0.3);
+  var sBelow = game.mode === 'track' ? CF.courseSurfAt(car.x, car.z) :
+    (worldName === 'climb' ? CF.CLIMB.surfAt(car.x, car.z) : CF.groundBelowAt(car.x, car.z, car.y - 0.3));
   var hAbove = Math.max(0, (car.y - 0.35) - sBelow.h);
+  shadowMesh.visible = !(worldName === 'climb' && (sBelow.zone === 'void' || (game.climb && game.climb.falling)));
   shadowMesh.position.set(car.x, sBelow.h + 0.06, car.z);
   var ss = CF.clamp(1.12 + hAbove * 0.03, 1.12, 4.5);
   shadowMesh.scale.set(ss, ss, ss);
   shadowMesh.material.opacity = CF.clamp(1 - hAbove * 0.004, 0.35, 1);
+  if (worldName === 'climb') {
+    updateClimbPool();
+    syncBestLine();
+    if (seaMesh) {
+      seaMesh.visible = true;
+      if (!(game.climb && game.climb.falling)) { // the sea freezes as the car falls: the car sinks toward it
+        seaMesh.position.set(car.x, car.y - 130, car.z);
+        seaTex.offset.set((car.x / 720) % 1, (-car.z / 720) % 1);
+      }
+    }
+    if (skyDome) skyDome.position.set(car.x, car.y, car.z);
+  } else {
+    if (seaMesh) seaMesh.visible = false;
+    if (skyDome) skyDome.position.set(0, 0, 0);
+  }
   updateCamera(dt);
   if (game.started) updateHUD();
   renderer.render(scene, camera);
