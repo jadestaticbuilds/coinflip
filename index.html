@@ -1283,7 +1283,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 container.appendChild(renderer.domElement);
 var scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0d5c46);
-scene.fog = new THREE.Fog(0x2e8f74, 350, 2100);
+scene.fog = new THREE.Fog(0x2e8f74, 300, 1850);
 var camera = new THREE.PerspectiveCamera(62, 1, 0.1, 4200);
 camera.position.set(0, 90, 520);
 scene.add(new THREE.HemisphereLight(0xcfffe8, 0x1d5c40, 1.3));
@@ -1347,6 +1347,7 @@ var skyDome = null; // the frame loop recenters it on the car in Climb, where a 
   var tex = new THREE.CanvasTexture(cv);
   var dome = new THREE.Mesh(new THREE.SphereGeometry(3000, 24, 14),
     new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false }));
+  dome.frustumCulled = false; // the dome recenters on the car every frame; it must never be culled
   scene.add(dome);
   skyDome = dome;
 })();
@@ -1408,7 +1409,10 @@ var groundTex = (function () {
   t.repeat.set(40, 40); // one tile = 30 m of arena floor
   return t;
 })();
-var terrainMat = new THREE.MeshToonMaterial({ vertexColors: true, map: groundTex, gradientMap: TOON_GRAD });
+/* DoubleSide: the ribbon sheet must render from below and from the side
+   (falls, cross-jumps). FrontSide made the whole ramp vanish from
+   underneath, exactly when a falling player looks up at it. */
+var terrainMat = new THREE.MeshToonMaterial({ vertexColors: true, map: groundTex, gradientMap: TOON_GRAD, side: THREE.DoubleSide });
 /* ---------- coins ---------- */
 var coinMeshes = [], coinPillars = [];
 (function buildCoins() {
@@ -1488,7 +1492,7 @@ var shadowMesh;
   ctx.fillStyle = grad; ctx.fillRect(0, 0, 128, 128);
   var tex = new THREE.CanvasTexture(cv);
   shadowMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 4.8),
-    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
   shadowMesh.rotation.x = -Math.PI / 2; shadowMesh.renderOrder = 2;
   scene.add(shadowMesh);
 })();
@@ -1507,7 +1511,7 @@ var shadowMesh;
    into darkness. */
 var rampGroup = new THREE.Group();
 scene.add(rampGroup);
-var RAMP_SEG_LEN = 100, RAMP_POOL_N = 22, RAMP_ROWS = 41, RAMP_COLS = 7;
+var RAMP_SEG_LEN = 100, RAMP_POOL_N = 26, RAMP_ROWS = 41, RAMP_COLS = 7;
 var rampColHex = [0x11604a, 0x2b2320, 0xd95f38, 0xd95f38, 0xd95f38, 0x2b2320, 0x11604a];
 function buildRampSegGeo(pool, seg, s0) {
   var pos = seg.geo.attributes.position.array;
@@ -1524,7 +1528,7 @@ function buildRampSegGeo(pool, seg, s0) {
       var lat = lats[c];
       var x = p.x + p.sx * lat, z = p.z + p.sz * lat;
       var y = p.h + CF.RAMP.kickerH(pool.id, s, lat) + 0.03; // the heightfield formula, from the row frame (straight ribbons: no banking term)
-      if (c === 0 || c === RAMP_COLS - 1) y -= 2.6; // the skirt falls away at the sides: air below the ink line
+      if (c === 0 || c === RAMP_COLS - 1) y -= 12; // the skirt drops the full slab depth (12 m, matching the physics slab), so the side reads as a wall from across the gap and from below
       pos[vi * 3] = x; pos[vi * 3 + 1] = y; pos[vi * 3 + 2] = z;
       var hex = rampColHex[c];
       if (c >= 2 && c <= 4 && CF.RAMP.kickerH(pool.id, s, lat) > 0.05) hex = 0xd98e32; // kicker humps read amber
@@ -1604,8 +1608,12 @@ var seaTex = null, seaMesh = null;
   }
   seaTex = new THREE.CanvasTexture(cv);
   seaTex.wrapS = seaTex.wrapT = THREE.RepeatWrapping;
-  seaTex.repeat.set(5, 5);
-  seaMesh = new THREE.Mesh(new THREE.PlaneGeometry(3600, 3600), new THREE.MeshBasicMaterial({ map: seaTex }));
+  seaTex.repeat.set(5600 / 720, 5600 / 720); // tile stays 720 m: the frame loop's offset recycling math is unchanged
+  /* 5,600 m across: the edge sits 2,800 m from the car, past the full-fog
+     distance (1,850 m), so the sea reaches the haze horizon in every
+     direction instead of ending on a visible line. */
+  seaMesh = new THREE.Mesh(new THREE.PlaneGeometry(5600, 5600), new THREE.MeshBasicMaterial({ map: seaTex }));
+  seaMesh.frustumCulled = false; // it follows the car; never let a stale bound hide the ground plane of the world
   seaMesh.rotation.x = -Math.PI / 2;
   scene.add(seaMesh);
 })();
@@ -1636,7 +1644,7 @@ function syncBestLine(bl, target) {
     var pp = CF.RAMP.pointAt(bl.id, target + ds);
     latsB.forEach(function (lat) {
       var x = pp.x + pp.sx * lat, z = pp.z + pp.sz * lat;
-      posA.push(x, CF.RAMP.surfHAt(bl.id, target + ds, lat) + 0.07, z);
+      posA.push(x, CF.RAMP.surfHAt(bl.id, target + ds, lat) + 0.10, z);
     });
   });
   for (var c = 0; c < latsB.length - 1; c++) {
@@ -1647,13 +1655,21 @@ function syncBestLine(bl, target) {
   gStrip.setAttribute('position', new THREE.BufferAttribute(new Float32Array(posA), 3));
   gStrip.setIndex(idxA);
   gStrip.computeVertexNormals();
-  bl.group.add(new THREE.Mesh(gStrip, new THREE.MeshBasicMaterial({ color: 0xffc44d, side: THREE.DoubleSide })));
+  /* polygonOffset on top of the 0.10 m lift: the strip lies on the ribbon
+     and the pair z-fought at glancing angles (0.1 near / 4200 far depth
+     precision). The children are rebuilt in place on every sync, so
+     frustumCulled comes off: a generated bound must never hide them. */
+  var stripMesh = new THREE.Mesh(gStrip, new THREE.MeshBasicMaterial({ color: 0xffc44d, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+  stripMesh.frustumCulled = false;
+  bl.group.add(stripMesh);
   var ex = p.x + p.sx * hw, ez = p.z + p.sz * hw, ey = CF.RAMP.surfHAt(bl.id, target, hw);
   var pole = new THREE.Mesh(new THREE.BoxGeometry(0.18, 6, 0.18), lam(INK_HEX));
+  pole.frustumCulled = false;
   pole.position.set(ex, ey + 3, ez);
   bl.group.add(pole);
   var flag = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.4),
     new THREE.MeshBasicMaterial({ color: 0xffc44d, side: THREE.DoubleSide }));
+  flag.frustumCulled = false;
   flag.position.set(ex - p.sx * 1.25, ey + 5.25, ez - p.sz * 1.25);
   flag.rotation.y = Math.atan2(p.tx, p.tz);
   bl.group.add(flag);
@@ -1766,6 +1782,7 @@ window.addEventListener('deviceorientation', function (e) {
 
 /* ---------- game + bests ---------- */
 var game = CF.createGame(tune);
+window.CFDebug = { camera: camera, game: game }; // test hook: tools/smoke.js asserts the shipped camera's framing geometrically
 var rampBests = { up: 0, down: 0 };
 (function loadRampBests() {
   var u = parseFloat(localStorage.getItem('cf-best-climb') || '0');
@@ -2016,6 +2033,7 @@ document.addEventListener('visibilitychange', function () {
 
 /* ---------- camera ---------- */
 var camYaw = Math.PI, camDist = 26, camH = 12, wingT = 0, orbitT = 0;
+var camN = { x: 0, y: 1, z: 0 }; // smoothed surface normal at the car: the chase frame lives in it
 function lerpAngle(a, b, t) {
   var d = ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
   return a + d * t;
@@ -2044,15 +2062,38 @@ function updateCamera(dt) {
      blob shadow that marks it) stays in frame. */
   camDist += (((air ? 36 + 30 * spdFrac + Math.min(car.airTime * 2, 12) : 24 + 26 * spdFrac)) - camDist) * (1 - Math.exp(-dt * 2.4));
   camH += (((air ? 17 + 9 * spdFrac : 10 + 7 * spdFrac)) - camH) * (1 - Math.exp(-dt * 2.4));
+  /* SLOPE-AWARE CHASE FRAME: the camera offset is built in the surface
+     frame at the car (back along the local tangent, up along the local
+     normal), not in world axes. The old world-frame offset put the camera
+     at car.y + camH on a 22 degree descent: level with the uphill slab
+     behind the car, grazing or inside it, with the ramp out of frame at
+     the DOWN spawn. In the surface frame the car holds the same frame
+     position on any grade and the road ahead fills the same view; on
+     flat ground the frame reduces exactly to the old offsets. The
+     normal is the one surfAt already computes for the blob shadow (it
+     includes kicker slope); over the void (gap, falling) it relaxes
+     back to world up, smoothed, so crossings never snap the frame. */
+  var sf = CF.RAMP.surfAt(car.x, car.z);
+  var tnx = 0, tny = 1, tnz = 0;
+  if (sf && sf.h > -1e8) { tnx = sf.nx; tny = sf.ny; tnz = sf.nz; }
+  var kn = 1 - Math.exp(-dt * 6);
+  camN.x += (tnx - camN.x) * kn; camN.y += (tny - camN.y) * kn; camN.z += (tnz - camN.z) * kn;
+  var nl = Math.sqrt(camN.x * camN.x + camN.y * camN.y + camN.z * camN.z) || 1;
+  var Nx = camN.x / nl, Ny = camN.y / nl, Nz = camN.z / nl;
   var fx = Math.sin(camYaw), fz = Math.cos(camYaw);
-  var px = car.x - fx * camDist, pz = car.z - fz * camDist;
-  var py = car.y + camH;
+  var fd = fx * Nx + fz * Nz; // heading dotted with the normal (heading is horizontal)
+  var Tx = fx - Nx * fd, Ty = -Ny * fd, Tz = fz - Nz * fd;
+  var tl = Math.sqrt(Tx * Tx + Ty * Ty + Tz * Tz) || 1;
+  Tx /= tl; Ty /= tl; Tz /= tl;
+  var px = car.x + Nx * camH - Tx * camDist;
+  var py = car.y + Ny * camH - Ty * camDist;
+  var pz = car.z + Nz * camH - Tz * camDist;
   var kp = 1 - Math.exp(-dt * 9);
   camera.position.x += (px - camera.position.x) * kp;
   camera.position.y += (py - camera.position.y) * kp;
   camera.position.z += (pz - camera.position.z) * kp;
   camera.up.set(0, 1, 0); // horizon locked, architecturally
-  camera.lookAt(car.x + fx * 3, car.y + 1.2, car.z + fz * 3);
+  camera.lookAt(car.x + Tx * 3 + Nx * 1.2, car.y + Ty * 3 + Ny * 1.2, car.z + Tz * 3 + Nz * 1.2);
   var spd = car.mode === 'ground' ? Math.abs(car.speed) : Math.sqrt(car.vx * car.vx + car.vz * car.vz);
   var fovT = 62 + 14 * CF.clamp(spd / 170, 0, 1) + (air ? 4 * Math.min(car.airTime, 1) : 0);
   fovT = Math.min(fovT, 82);
@@ -2126,7 +2167,7 @@ function frame(nowMs) {
   var sBelow = CF.RAMP.surfAt(car.x, car.z);
   var hAbove = Math.max(0, (car.y - 0.35) - sBelow.h);
   shadowMesh.visible = !(sBelow.h < -1e8 || (game.ramp && game.ramp.falling));
-  shadowMesh.position.set(car.x, sBelow.h + 0.06, car.z);
+  shadowMesh.position.set(car.x, sBelow.h + 0.12, car.z);
   var ss = CF.clamp(1.12 + hAbove * 0.03, 1.12, 4.5);
   shadowMesh.scale.set(ss, ss, ss);
   shadowMesh.material.opacity = CF.clamp(1 - hAbove * 0.004, 0.35, 1);
