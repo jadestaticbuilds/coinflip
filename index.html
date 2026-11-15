@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>COINFLIP: Graybox Pilot</title>
+<title>COINFLIP: Pilot</title>
 <style>
   html, body {
     height: 100%;
@@ -13,7 +13,7 @@
     height: 100dvh;
     padding-bottom: 34px;
     padding-bottom: max(34px, calc(10px + env(safe-area-inset-bottom)));
-    background: #0b0e0d;
+    background: #06110c;
     color: #dfe7e2;
     font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     overflow: hidden;
@@ -39,13 +39,13 @@
   #clock.final { color: #ff5d5d; animation: pendPulse 0.4s ease-in-out infinite alternate; }
   #hudTopRight { top: calc(10px + env(safe-area-inset-top)); right: 14px; text-align: right; }
   #coins { font-size: 22px; font-weight: 800; color: #ffc44d; text-shadow: 0 2px 8px rgba(0,0,0,0.7); }
-  #speed { font-size: 14px; font-weight: 600; color: #aebbb4; margin-top: 4px; text-shadow: 0 2px 8px rgba(0,0,0,0.7); }
+  #speed { font-size: 14px; font-weight: 600; color: #19d3da; margin-top: 4px; text-shadow: 0 2px 8px rgba(0,0,0,0.7); }
 
   #hudCombo { left: 14px; bottom: 96px; width: 168px; }
   #comboMult { font-size: 24px; font-weight: 800; color: #19f0a0; text-shadow: 0 2px 8px rgba(0,0,0,0.7); }
   #fuseWrap { height: 7px; background: rgba(255,255,255,0.16); border-radius: 4px; margin-top: 5px; overflow: hidden; }
   #fuse { height: 100%; width: 0%; background: #19f0a0; border-radius: 4px; }
-  #comboLabel { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; color: #aebbb4; margin-top: 4px; }
+  #comboLabel { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; color: #58b7bc; margin-top: 4px; }
 
   #banner {
     top: 24%; left: 50%; transform: translateX(-50%);
@@ -73,7 +73,7 @@
   #tunePanel {
     position: absolute; z-index: 20; top: calc(8px + env(safe-area-inset-top)); left: 8px;
     width: 264px; max-height: 86%; overflow-y: auto;
-    background: rgba(8,13,11,0.94); border: 1px solid rgba(25,240,160,0.5); border-radius: 12px;
+    background: rgba(5,14,10,0.95); border: 1px solid rgba(25,240,160,0.5); border-radius: 12px;
     padding: 12px 14px; display: none;
   }
   #tunePanel.open { display: block; }
@@ -81,7 +81,7 @@
   #tunePanel p { margin: 0 0 10px; font-size: 11px; color: #93a39a; line-height: 1.45; }
   .trow { margin-bottom: 10px; }
   .trow label { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: #cfe0d7; margin-bottom: 3px; }
-  .trow label span { color: #ffc44d; font-weight: 800; }
+  .trow label span { color: #19d3da; font-weight: 800; }
   .trow input[type=range] { width: 100%; height: 26px; accent-color: #19f0a0; }
   #tuneClose, .bigBtn {
     pointer-events: auto; cursor: pointer; border: none; border-radius: 10px;
@@ -93,13 +93,13 @@
   .screen {
     position: absolute; inset: 0; z-index: 15; display: flex; flex-direction: column;
     align-items: center; justify-content: center; text-align: center;
-    background: rgba(5,9,7,0.72); padding: 20px;
+    background: rgba(4,12,8,0.78); padding: 20px;
   }
   .screen h1 { margin: 0; font-size: 52px; font-weight: 900; letter-spacing: 3px; color: #eafff5; }
   .screen h1 .jade { color: #19f0a0; }
   .tag {
-    margin-top: 8px; font-size: 13px; font-weight: 800; letter-spacing: 3px; color: #0b0e0d;
-    background: #ffc44d; padding: 4px 12px; border-radius: 6px;
+    margin-top: 8px; font-size: 13px; font-weight: 800; letter-spacing: 3px; color: #06231a;
+    background: #19f0a0; padding: 4px 12px; border-radius: 6px;
   }
   .howto { margin-top: 20px; font-size: 16px; line-height: 1.55; color: #cfe0d7; max-width: 520px; }
   .bests { margin-top: 14px; font-size: 13px; font-weight: 700; letter-spacing: 1px; color: #93a39a; min-height: 18px; }
@@ -118,7 +118,7 @@
   #pausedChip {
     position: absolute; z-index: 9; top: 40%; left: 50%; transform: translate(-50%,-50%);
     font-size: 22px; font-weight: 900; letter-spacing: 3px; color: #eafff5;
-    background: rgba(8,13,11,0.75); padding: 10px 22px; border-radius: 10px; display: none; pointer-events: none;
+    background: rgba(5,14,10,0.8); padding: 10px 22px; border-radius: 10px; display: none; pointer-events: none;
   }
 </style>
 </head>
@@ -152,7 +152,7 @@
 
   <div id="tunePanel">
     <h3>FEEL TUNING</h3>
-    <p>Live constants for the graybox. Changes apply instantly and are saved on this phone. Long-press the top-left corner any time to reopen.</p>
+    <p>Live feel constants. Changes apply instantly and are saved on this phone. Long-press the top-left corner any time to reopen.</p>
     <div class="trow"><label>Gravity <span id="v-gravity"></span></label><input type="range" id="t-gravity" min="12" max="34" step="0.5"></div>
     <div class="trow"><label>Pitch rate <span id="v-pitchRate"></span></label><input type="range" id="t-pitchRate" min="3" max="12" step="0.2"></div>
     <div class="trow"><label>Roll rate <span id="v-rollRate"></span></label><input type="range" id="t-rollRate" min="3" max="12" step="0.2"></div>
@@ -165,7 +165,7 @@
 
   <div class="screen" id="startScreen">
     <h1>COIN<span class="jade">FLIP</span></h1>
-    <div class="tag">GRAYBOX PILOT</div>
+    <div class="tag">PILOT</div>
     <div class="howto">Drag on the left to steer. In the air, drag to flip and roll, and hold the right side to stabilize and set it down clean. Landings bank the points. Three minutes, twelve coins, one room.</div>
     <div class="bests" id="startBests"></div>
     <button class="bigBtn" id="startBtn">START RUN</button>
@@ -361,11 +361,11 @@ function terrainAt(x, z) {
 function surfacesAt(x, z) {
   var list = [terrainAt(x, z)];
   var ax = Math.abs(x), az = Math.abs(z);
-  if (Math.max(ax, az) >= 53 && ax <= 60 && az <= 60) list.push(flatSurf(6, 'rim', 0));
+  if (Math.max(ax, az) >= 53 && ax <= 60 && az <= 60) { var rm = flatSurf(6, 'rim', 0); rm.stacked = true; list.push(rm); }
   if (z >= -60 && z <= -53) {
-    if (x >= 44 && x <= 54) list.push(surf(6 + (54 - x) * 0.4, -0.4, 0, 'deckramp', 5.9));
-    else if (x <= -44 && x >= -54) list.push(surf(6 + (x + 54) * 0.4, 0.4, 0, 'deckramp', 5.9));
-    if ((x >= 4.5 && x <= 44) || (x >= -44 && x <= -4.5)) list.push(flatSurf(10, 'deck', 9));
+    if (x >= 44 && x <= 54) { var dr1 = surf(6 + (54 - x) * 0.4, -0.4, 0, 'deckramp', 5.9); dr1.stacked = true; list.push(dr1); }
+    else if (x <= -44 && x >= -54) { var dr2 = surf(6 + (x + 54) * 0.4, 0.4, 0, 'deckramp', 5.9); dr2.stacked = true; list.push(dr2); }
+    if ((x >= 4.5 && x <= 44) || (x >= -44 && x <= -4.5)) { var dk = flatSurf(10, 'deck', 9); dk.stacked = true; list.push(dk); }
   }
   // The Rail: beam across the bowl corner
   var dx = RAIL.x2 - RAIL.x1, dz = RAIL.z2 - RAIL.z1;
@@ -373,7 +373,7 @@ function surfacesAt(x, z) {
   tt = clamp(tt, 0, 1);
   var cx = RAIL.x1 + dx * tt, cz = RAIL.z1 + dz * tt;
   var dd = Math.sqrt((x - cx) * (x - cx) + (z - cz) * (z - cz));
-  if (dd <= RAIL.half) list.push(flatSurf(RAIL.h, 'rail', RAIL.under));
+  if (dd <= RAIL.half) { var rl = flatSurf(RAIL.h, 'rail', RAIL.under); rl.stacked = true; list.push(rl); }
   list.sort(function (a, b) { return b.h - a.h; });
   return list;
 }
@@ -580,31 +580,65 @@ function createGame(tune) {
     car.speed -= tune.gravity * fy * dt * 0.55; // slopes push back, descents pull
     if (car.speed > 44) car.speed = 44;
     if (car.speed < -12) car.speed = -12;
+    /* Ballistic step: velocity runs along the surface tangent (climbing a face
+       converts speed into upward velocity) and gravity always acts. Ground
+       contact is a constraint applied after the move, never glue: if the
+       surface has fallen away below the ballistic position, the car is
+       airborne carrying that velocity, upward component included. */
     var tv = tangentVelocity(n, car.heading, car.speed);
+    tv.y -= tune.gravity * dt;
+    var prevX = car.x, prevZ = car.z, prevBottom = car.y - WHEEL;
     var mx = car.x + tv.x * dt, mz = car.z + tv.z * dt;
-    var bottom = car.y - WHEEL;
-    if (isBlocked(mx, mz, bottom)) {
-      if (!isBlocked(mx, car.z, bottom)) { mz = car.z; }
-      else if (!isBlocked(car.x, mz, bottom)) { mx = car.x; }
-      else { mx = car.x; mz = car.z; }
+    var my = car.y + tv.y * dt;
+    /* Deflection: a solid surface rising faster than any real slope in the
+       arena (steepest is the quarter pipe at gradient 2.0) is a face, not a
+       climb. Slide along it or stop against it; never enter it. Floating
+       structures (deck, rail, deck ramps) are skipped: the car passes under. */
+    function faceAt(px, pz, allow) {
+      var list = surfacesAt(px, pz), i, s, top = null;
+      for (i = 0; i < list.length; i++) {
+        s = list[i];
+        if (s.stacked && s.zone !== 'rim' && s.under > prevBottom + 1.2) continue;
+        if (!top || s.h > top.h) top = s;
+      }
+      return (top && top.h > prevBottom + allow) ? top : null;
+    }
+    var dist = Math.sqrt((mx - prevX) * (mx - prevX) + (mz - prevZ) * (mz - prevZ));
+    var allow = dist * 2.5 + 0.05;
+    if (faceAt(mx, mz, allow)) {
+      if (!faceAt(mx, prevZ, allow)) { mz = prevZ; }
+      else if (!faceAt(prevX, mz, allow)) { mx = prevX; }
+      else { mx = prevX; mz = prevZ; }
       car.speed *= 0.55;
+      dist = Math.sqrt((mx - prevX) * (mx - prevX) + (mz - prevZ) * (mz - prevZ));
+      allow = dist * 2.5 + 0.05;
     }
     car.x = mx; car.z = mz; clampWalls();
-    var tol = 0.9 + Math.abs(car.speed) * dt * 1.2;
-    var cand = groundBelowAt(car.x, car.z, bottom + tol);
-    var drop = bottom - cand.h;
-    var snapDown = 0.5 + Math.abs(car.speed) * dt * 1.5;
-    if (drop > snapDown) {
-      var lv = tangentVelocity(n, car.heading, car.speed);
-      car.vx = lv.x; car.vy = lv.y; car.vz = lv.z;
+    /* Resting surface: the highest surface the car could have climbed to in
+       this step. Anything higher is a face it was deflected from, or a
+       floating structure it is passing beneath. */
+    var list = surfacesAt(car.x, car.z), cand = list[list.length - 1], i2;
+    for (i2 = 0; i2 < list.length; i2++) { if (list[i2].h <= prevBottom + allow) { cand = list[i2]; break; } }
+    var newBottom = my - WHEEL;
+    if (cand.h >= newBottom - 0.001) {
+      car.y = cand.h + WHEEL; car.surf = cand;
+      car.q = groundQuat(car.heading, cand.nx, cand.ny, cand.nz);
+    } else if (newBottom - cand.h <= 0.35 && Math.abs(car.speed) <= 8) {
+      /* Snap-down following: small drops at low speed only, never at launch
+         speed over a lip or a crest. */
+      car.y = cand.h + WHEEL; car.surf = cand;
+      car.q = groundQuat(car.heading, cand.nx, cand.ny, cand.nz);
+    } else {
+      car.y = my;
+      car.vx = tv.x; car.vy = tv.y; car.vz = tv.z;
       car.mode = 'air'; car.airTime = 0; car.wings = false; car.corkscrew = false;
       car.accPitch = 0; car.accRoll = 0; car.accYaw = 0; car.wx = 0; car.wy = 0; car.wz = 0;
       scoring.beginAir(g.now);
       g.events.push({ type: 'takeoff' });
-    } else {
-      car.y = cand.h + WHEEL; car.surf = cand;
-      car.q = groundQuat(car.heading, cand.nx, cand.ny, cand.nz);
     }
+    /* Recovery: a ground step never ends below its resting surface, so a
+       player never needs reverse to escape a physics error. */
+    if (car.mode === 'ground' && car.y - WHEEL < car.surf.h - 0.05) car.y = car.surf.h + WHEEL;
   }
 
   function inRimBand(x, z) { return Math.max(Math.abs(x), Math.abs(z)) >= 53; }
@@ -675,18 +709,33 @@ function createGame(tune) {
     var gEff = tune.gravity * (input.stabilize ? 0.75 : 1); // stabilize glides: falls ~25% slower
     car.vy -= gEff * dt;
     if (input.stabilize) { var dr = Math.max(0, 1 - 0.08 * dt); car.vx *= dr; car.vz *= dr; }
-    var px = car.x, pz = car.z, prevBottom = car.y - WHEEL;
-    car.x += car.vx * dt; car.y += car.vy * dt; car.z += car.vz * dt;
-    if (car.x > 58.6) { car.x = 58.6; car.vx = -Math.abs(car.vx) * 0.25; }
-    if (car.x < -58.6) { car.x = -58.6; car.vx = Math.abs(car.vx) * 0.25; }
-    if (car.z > 58.6) { car.z = 58.6; car.vz = -Math.abs(car.vz) * 0.25; }
-    if (car.z < -58.6) { car.z = -58.6; car.vz = Math.abs(car.vz) * 0.25; }
-    sideCollide(px, pz);
-    var bottom = car.y - WHEEL, list = surfacesAt(car.x, car.z), i, s;
-    for (i = 0; i < list.length; i++) {
-      s = list[i];
-      if (prevBottom >= s.h - 0.02 && bottom <= s.h && car.vy <= 1.5) { land(s); return; }
+    /* Substepped move (max ~0.4m of travel per substep) so a fast car can
+       never tunnel through a surface between frames. Two ways to meet the
+       ground: cross it from above, or hit a solid face/rise sideways (the car
+       was above the terrain where it was and is below it where it is). The
+       second rule is what stops a low flight path entering the Crown, a bowl
+       lip or a feeder footprint underneath its surface. Floating structures
+       (deck, rail) only ever land via the crossing rule, so flying under
+       them stays flying under them. */
+    var px = car.x, pz = car.z;
+    var distA = Math.sqrt(car.vx * car.vx + car.vz * car.vz) * dt;
+    var nSub = Math.max(1, Math.ceil(distA / 0.4)), sdt = dt / nSub, si;
+    for (si = 0; si < nSub; si++) {
+      var prevBottom = car.y - WHEEL;
+      var prevSurfH = terrainAt(car.x, car.z).h;
+      car.x += car.vx * sdt; car.y += car.vy * sdt; car.z += car.vz * sdt;
+      if (car.x > 58.6) { car.x = 58.6; car.vx = -Math.abs(car.vx) * 0.25; }
+      if (car.x < -58.6) { car.x = -58.6; car.vx = Math.abs(car.vx) * 0.25; }
+      if (car.z > 58.6) { car.z = 58.6; car.vz = -Math.abs(car.vz) * 0.25; }
+      if (car.z < -58.6) { car.z = -58.6; car.vz = Math.abs(car.vz) * 0.25; }
+      var bottom = car.y - WHEEL, list = surfacesAt(car.x, car.z), i, s;
+      for (i = 0; i < list.length; i++) {
+        s = list[i];
+        if (prevBottom >= s.h - 0.02 && bottom <= s.h && car.vy <= 1.5) { land(s); return; }
+        if (!s.stacked && bottom < s.h - 0.02 && prevBottom >= prevSurfH - 0.02) { land(s); return; }
+      }
     }
+    sideCollide(px, pz);
     if (car.y < -8) land(groundBelowAt(car.x, car.z, 1e6)); // safety net, should not happen
   }
 
@@ -753,7 +802,7 @@ global.CF = {
 </script>
 
 <script>
-/* COINFLIP graybox shell: Three.js rendering, touch input, HUD, tuning panel.
+/* COINFLIP pilot shell: Three.js rendering, touch input, HUD, tuning panel.
    All game logic lives in the core block above. */
 (function () {
 'use strict';
@@ -765,14 +814,42 @@ var renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 container.appendChild(renderer.domElement);
 var scene = new THREE.Scene();
-scene.background = new THREE.Color(0x14181a);
-scene.fog = new THREE.Fog(0x14181a, 70, 165);
+scene.background = new THREE.Color(0x06110c);
+scene.fog = new THREE.Fog(0x06110c, 60, 155);
 var camera = new THREE.PerspectiveCamera(62, 1, 0.1, 420);
 camera.position.set(0, 16, 78);
-scene.add(new THREE.HemisphereLight(0xdfe8e4, 0x232826, 0.95));
-var sun = new THREE.DirectionalLight(0xffffff, 0.55);
+scene.add(new THREE.HemisphereLight(0x9fe8c8, 0x0a140e, 1.0));
+var sun = new THREE.DirectionalLight(0xe6fff2, 0.55);
 sun.position.set(40, 90, 25);
 scene.add(sun);
+
+/* ---------- sky dome: dark gradient, stars, one horizon of city glow ---------- */
+(function buildSky() {
+  var cv = document.createElement('canvas'); cv.width = 1024; cv.height = 512;
+  var ctx = cv.getContext('2d');
+  var grad = ctx.createLinearGradient(0, 0, 0, 512);
+  grad.addColorStop(0, '#010403'); grad.addColorStop(0.42, '#04120b');
+  grad.addColorStop(0.55, '#06110c'); grad.addColorStop(0.62, '#030805'); grad.addColorStop(1, '#010302');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, 1024, 512);
+  // low city glow band, brightest on one horizon (u ~0.25)
+  var glow = ctx.createRadialGradient(256, 292, 10, 256, 292, 340);
+  glow.addColorStop(0, 'rgba(25,211,218,0.34)'); glow.addColorStop(0.45, 'rgba(25,240,160,0.13)'); glow.addColorStop(1, 'rgba(25,240,160,0)');
+  ctx.fillStyle = glow; ctx.fillRect(0, 120, 1024, 260);
+  var band = ctx.createLinearGradient(0, 268, 0, 300);
+  band.addColorStop(0, 'rgba(25,240,160,0)'); band.addColorStop(0.5, 'rgba(120,255,200,0.10)'); band.addColorStop(1, 'rgba(25,240,160,0)');
+  ctx.fillStyle = band; ctx.fillRect(0, 268, 1024, 32);
+  // stars in the upper sky
+  for (var i = 0; i < 340; i++) {
+    var sx = Math.random() * 1024, sy = Math.pow(Math.random(), 1.4) * 235;
+    var a = 0.25 + Math.random() * 0.75, r = Math.random() < 0.08 ? 1.6 : 1;
+    ctx.fillStyle = 'rgba(230,255,244,' + a.toFixed(2) + ')';
+    ctx.fillRect(sx, sy, r, r);
+  }
+  var tex = new THREE.CanvasTexture(cv);
+  var dome = new THREE.Mesh(new THREE.SphereGeometry(360, 24, 14),
+    new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false }));
+  scene.add(dome);
+})();
 
 function lam(color) { return new THREE.MeshLambertMaterial({ color: color }); }
 var JADE = new THREE.MeshBasicMaterial({ color: 0x19f0a0 });
@@ -782,8 +859,8 @@ function strip(w, d, x, y, z, mat) {
 }
 
 /* ---------- terrain mesh from the analytic heightfield ---------- */
-var ZONE_COLORS = { floor: 0x767d79, bowl: 0x5d645f, crown: 0x8b928d, 'crown-apex': 0x99a19c,
-                    feeder: 0x828a85, ramp: 0x7c847f, qp: 0x909792 };
+var ZONE_COLORS = { floor: 0x132219, bowl: 0x0e1c14, crown: 0x1a2f21, 'crown-apex': 0x213a29,
+                    feeder: 0x16281d, ramp: 0x15261c, qp: 0x1c3325 };
 (function buildTerrain() {
   var geo = new THREE.PlaneGeometry(120, 120, 120, 120);
   geo.rotateX(-Math.PI / 2);
@@ -792,7 +869,7 @@ var ZONE_COLORS = { floor: 0x767d79, bowl: 0x5d645f, crown: 0x8b928d, 'crown-ape
     var x = pos.getX(i), z = pos.getZ(i);
     var s = CF.terrainAt(x, z);
     pos.setY(i, s.h);
-    col.setHex(ZONE_COLORS[s.zone] || 0x767d79);
+    col.setHex(ZONE_COLORS[s.zone] || 0x132219);
     colors[i * 3] = col.r; colors[i * 3 + 1] = col.g; colors[i * 3 + 2] = col.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
@@ -803,7 +880,7 @@ var ZONE_COLORS = { floor: 0x767d79, bowl: 0x5d645f, crown: 0x8b928d, 'crown-ape
 
 /* ---------- elevated structures ---------- */
 (function buildStructures() {
-  var rimMat = lam(0x686e6a), deckMat = lam(0x707672);
+  var rimMat = lam(0x182720), deckMat = lam(0x1b2b21);
   function box(w, h, d, x, y, z, mat) {
     var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
     m.position.set(x, y, z); scene.add(m); return m;
@@ -829,13 +906,13 @@ var ZONE_COLORS = { floor: 0x767d79, bowl: 0x5d645f, crown: 0x8b928d, 'crown-ape
       p.setY(i, sign > 0 ? 6 + (54 - wx) * 0.4 : 6 + (wx + 54) * 0.4);
     }
     g2.computeVertexNormals();
-    var m = new THREE.Mesh(g2, new THREE.MeshLambertMaterial({ color: 0x787e7a, side: THREE.DoubleSide }));
+    var m = new THREE.Mesh(g2, new THREE.MeshLambertMaterial({ color: 0x182720, side: THREE.DoubleSide }));
     m.position.set(sign * 49, 0, -56.5); scene.add(m);
   }
   deckRamp(1); deckRamp(-1);
   // The Rail across the bowl corner
   var R = CF.RAIL, len = Math.sqrt((R.x2 - R.x1) * (R.x2 - R.x1) + (R.z2 - R.z1) * (R.z2 - R.z1));
-  var rail = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.3, len), lam(0x7a807c));
+  var rail = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.3, len), lam(0x203629));
   rail.position.set((R.x1 + R.x2) / 2, R.h - 0.15, (R.z1 + R.z2) / 2);
   rail.rotation.y = Math.atan2(R.x2 - R.x1, R.z2 - R.z1);
   scene.add(rail);
@@ -845,25 +922,75 @@ var ZONE_COLORS = { floor: 0x767d79, bowl: 0x5d645f, crown: 0x8b928d, 'crown-ape
   // Start pad outline
   strip(5.4, 0.24, 0, 0.07, 44.4); strip(5.4, 0.24, 0, 0.07, 49.6);
   strip(0.24, 5.4, -2.6, 0.07, 47); strip(0.24, 5.4, 2.6, 0.07, 47);
+  // Wall-top outer coping (the rim boxes are the walls)
+  strip(120, 0.28, 0, 6.07, -59.8); strip(120, 0.28, 0, 6.07, 59.8);
+  strip(0.28, 120, 59.8, 6.07, 0); strip(0.28, 120, -59.8, 6.07, 0);
+  // Toll Gap lips and deck back edges
+  strip(0.28, 7, 4.5, 10.06, -56.5); strip(0.28, 7, -4.5, 10.06, -56.5);
+  strip(39.5, 0.28, 24.25, 10.06, -59.8); strip(39.5, 0.28, -24.25, 10.06, -59.8);
+  // Crown trim: base perimeter where the faces meet the floor
+  strip(21.9, 0.24, 0, 0.09, 13.2); strip(21.9, 0.24, 0, 0.09, -9);
+  strip(0.24, 22.2, 10.96, 0.09, 2.1); strip(0.24, 22.2, -10.96, 0.09, 2.1);
+  // Crown trim: hip edges, apex corner to base corner
+  function beam(x1, y1, z1, x2, y2, z2) {
+    var dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
+    var L = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    var m = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, L), JADE);
+    m.position.set((x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2);
+    m.lookAt(x2, y2, z2); scene.add(m); return m;
+  }
+  beam(2, 7.02, 2, 10.96, 0.1, 13.2); beam(-2, 7.02, 2, -10.96, 0.1, 13.2);
+  beam(2, 7.02, -2, 10.96, 0.1, -9); beam(-2, 7.02, -2, -10.96, 0.1, -9);
+  // Feeder lips: a jade line along each wedge's high edge
+  CF.FEEDERS.forEach(function (f) {
+    var w = f.x1 - f.x0, d = f.z1 - f.z0, cx = (f.x0 + f.x1) / 2, cz = (f.z0 + f.z1) / 2;
+    if (f.dir === 'N') strip(w + 0.3, 0.26, cx, f.h + 0.06, f.z0);
+    else if (f.dir === 'S') strip(w + 0.3, 0.26, cx, f.h + 0.06, f.z1);
+    else if (f.dir === 'W') strip(0.26, d + 0.3, f.x0, f.h + 0.06, cz);
+    else strip(0.26, d + 0.3, f.x1, f.h + 0.06, cz);
+  });
+  // Rail side trims, so the beam reads along its full length
+  var rp = { x: Math.cos(rail.rotation.y), z: -Math.sin(rail.rotation.y) };
+  [-0.58, 0.58].forEach(function (off) {
+    var st = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, len), JADE);
+    st.position.set(rail.position.x + rp.x * off, R.h + 0.03, rail.position.z + rp.z * off);
+    st.rotation.y = rail.rotation.y; scene.add(st);
+  });
 })();
 
 /* ---------- coins ---------- */
-var coinMeshes = [];
+var coinMeshes = [], coinPillars = [];
 (function buildCoins() {
   var geo = new THREE.CylinderGeometry(0.9, 0.9, 0.16, 18);
   geo.rotateX(Math.PI / 2);
-  var mat = new THREE.MeshLambertMaterial({ color: 0xffc44d, emissive: 0x7a5200 });
+  var mat = new THREE.MeshLambertMaterial({ color: 0xffc44d, emissive: 0x9a6200 });
+  var rimGeo = new THREE.TorusGeometry(0.9, 0.07, 8, 24);
+  var rimMat = new THREE.MeshBasicMaterial({ color: 0xffc44d });
+  // soft vertical gradient for the light pillars (bright at the coin, gone at the top)
+  var pcv = document.createElement('canvas'); pcv.width = 1; pcv.height = 64;
+  var pctx = pcv.getContext('2d');
+  var pg = pctx.createLinearGradient(0, 64, 0, 0);
+  pg.addColorStop(0, '#ffffff'); pg.addColorStop(1, '#000000');
+  pctx.fillStyle = pg; pctx.fillRect(0, 0, 1, 64);
+  var pillarTex = new THREE.CanvasTexture(pcv);
+  var pillarGeo = new THREE.CylinderGeometry(0.14, 0.3, 7, 10, 1, true);
   for (var i = 0; i < CF.COINS.length; i++) {
     var m = new THREE.Mesh(geo, mat);
     m.position.set(CF.COINS[i].x, CF.COINS[i].y, CF.COINS[i].z);
+    var rim = new THREE.Mesh(rimGeo, rimMat); m.add(rim);
     scene.add(m); coinMeshes.push(m);
+    var pillar = new THREE.Mesh(pillarGeo, new THREE.MeshBasicMaterial({
+      color: 0xffc44d, alphaMap: pillarTex, transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false, fog: false }));
+    pillar.position.set(CF.COINS[i].x, CF.COINS[i].y + 3.5, CF.COINS[i].z);
+    scene.add(pillar); coinPillars.push(pillar);
   }
 })();
 
 /* ---------- the car ---------- */
 var carGroup = new THREE.Group(), wingL, wingR, wheels = [];
 (function buildCar() {
-  var body = lam(0x7f8c84), dark = lam(0x22262a), canopy = lam(0x2c3230);
+  var body = lam(0x0d9e63), dark = lam(0x0d1210), canopy = lam(0x05080a);
   function part(geo, mat, x, y, z) {
     var m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); carGroup.add(m); return m;
   }
@@ -877,12 +1004,26 @@ var carGroup = new THREE.Group(), wingL, wingR, wheels = [];
     var m = new THREE.Mesh(wgeo, dark); m.position.set(w[0], 0.35, w[1]);
     carGroup.add(m); wheels.push(m);
   });
-  var wmat = new THREE.MeshBasicMaterial({ color: 0x19f0a0, transparent: true, opacity: 0.4, side: THREE.DoubleSide });
+  var wmat = new THREE.MeshBasicMaterial({ color: 0x19f0a0, transparent: true, opacity: 0.38, side: THREE.DoubleSide });
   var gl = new THREE.PlaneGeometry(1.6, 0.75); gl.translate(-0.8, 0, 0);
   wingL = new THREE.Mesh(gl, wmat); wingL.position.set(-0.85, 0.82, 0.55); wingL.scale.x = 0.05;
   var gr = new THREE.PlaneGeometry(1.6, 0.75); gr.translate(0.8, 0, 0);
   wingR = new THREE.Mesh(gr, wmat); wingR.position.set(0.85, 0.82, 0.55); wingR.scale.x = 0.05;
+  // bright neon wing edges, so the deploy moment reads instantly (edges scale with the wing)
+  var edgeMat = new THREE.LineBasicMaterial({ color: 0x19f0a0 });
+  wingL.add(new THREE.LineSegments(new THREE.EdgesGeometry(gl), edgeMat));
+  wingR.add(new THREE.LineSegments(new THREE.EdgesGeometry(gr), edgeMat));
   carGroup.add(wingL); carGroup.add(wingR);
+  // glowing underglow quad beneath the car
+  var ucv = document.createElement('canvas'); ucv.width = ucv.height = 128;
+  var uctx = ucv.getContext('2d');
+  var ug = uctx.createRadialGradient(64, 64, 6, 64, 64, 62);
+  ug.addColorStop(0, 'rgba(25,240,160,0.85)'); ug.addColorStop(0.55, 'rgba(25,240,160,0.28)'); ug.addColorStop(1, 'rgba(25,240,160,0)');
+  uctx.fillStyle = ug; uctx.fillRect(0, 0, 128, 128);
+  var glowQuad = new THREE.Mesh(new THREE.PlaneGeometry(3.1, 4.7),
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(ucv), transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+  glowQuad.rotation.x = -Math.PI / 2; glowQuad.position.y = 0.05; glowQuad.renderOrder = 1;
+  carGroup.add(glowQuad);
   scene.add(carGroup);
 })();
 
@@ -1172,6 +1313,14 @@ function frame(nowMs) {
     coinMeshes[j].visible = !game.coins[j].taken;
     coinMeshes[j].rotation.y += dt * 2.2;
     coinMeshes[j].position.y = CF.COINS[j].y + Math.sin(nowMs / 500 + j * 1.3) * 0.1;
+    var pil = coinPillars[j];
+    if (game.coins[j].taken) { pil.visible = false; }
+    else {
+      pil.visible = true;
+      var pdx = car.x - CF.COINS[j].x, pdz = car.z - CF.COINS[j].z;
+      var pdist = Math.sqrt(pdx * pdx + pdz * pdz);
+      pil.material.opacity = CF.clamp((pdist - 7) / 20, 0, 1) * 0.32; // fades out as you close in
+    }
   }
   var sBelow = CF.groundBelowAt(car.x, car.z, car.y - 0.3);
   var hAbove = Math.max(0, (car.y - 0.35) - sBelow.h);
