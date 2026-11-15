@@ -71,6 +71,17 @@
   #hbBtn.on { background: rgba(25,240,160,0.35); color: #06231a; }
 
   #heatLabel { font-size: 13px; font-weight: 800; letter-spacing: 1.5px; color: #19d3da; margin-top: 4px; text-shadow: 0 2px 8px rgba(0,0,0,0.7); }
+  #trackHud {
+    position: absolute; z-index: 5; left: 50%; transform: translateX(-50%);
+    bottom: calc(108px + env(safe-area-inset-bottom)); width: min(430px, 78vw);
+    display: none; text-align: center; pointer-events: none;
+  }
+  #gateLabel { font-size: 13px; font-weight: 800; letter-spacing: 1.5px; color: #ffc44d; text-shadow: 0 2px 8px rgba(0,0,0,0.7); margin-bottom: 5px; }
+  #progWrap {
+    height: 10px; border: 2px solid #2b2320; border-radius: 6px;
+    background: rgba(7,38,30,0.72); box-shadow: 3px 3px 0 rgba(43,35,32,0.55); overflow: hidden;
+  }
+  #prog { height: 100%; width: 0%; background: #19f0a0; }
   .steerBtn {
     position: absolute; z-index: 6; bottom: 118px;
     width: 62px; height: 62px; border-radius: 50%;
@@ -241,6 +252,7 @@
     <div id="pending"></div>
   </div>
   <div class="hud" id="hudTopCenter"><div id="clock">3:00</div><div id="heatLabel"></div></div>
+  <div id="trackHud"><div id="gateLabel">GATES 0/9</div><div id="progWrap"><div id="prog"></div></div></div>
   <div class="hud" id="hudTopRight">
     <div id="coins">● 0/24</div>
     <div id="speed">0 km/h</div>
@@ -295,6 +307,7 @@
     <div class="hsec"><h4>SCORE</h4><p>Points stay pending while you are in the air and only bank when you land. Clean landings bank in full and grow the combo. A bad landing loses the whole air, but the car always rights itself and keeps rolling. Nothing stops you. Coins pay 250 each. Take off again within 3 seconds of landing to keep the combo alive.</p></div>
     <p class="hmode">SCORE ATTACK: one three minute run. Beat your best score, combo, and coin count.</p>
     <p class="hmode">HEAT LADDER: five heats with rising targets. The rim opens at Heat 2, the deck at Heat 3, and from Heat 3 coins also buy you time.</p>
+    <p class="hmode">TRACK RUN: a downhill time trial on the Ridgeline Run. The clock starts at 75 seconds and every gate you cross adds 8 more. Stunts and coins still score, but the clock is the headline. Missed gates are allowed, they just cost you the time.</p>
     <button class="bigBtn" id="howtoClose">DONE</button>
   </div>
 
@@ -312,6 +325,11 @@
         <span class="mcName">HEAT LADDER</span>
         <span class="mcDesc">Five heats, rising targets. The room unlocks as you climb.</span>
         <span class="mcBest" id="ladderBest"></span>
+      </button>
+      <button class="modeCard" id="trackBtn">
+        <span class="mcName">TRACK RUN</span>
+        <span class="mcDesc">The Ridgeline Run. Five kilometers of mountain road, downhill all the way. Beat the clock, feed it at the gates.</span>
+        <span class="mcBest" id="trackBest"></span>
       </button>
     </div>
     <div class="menuRow">
@@ -746,6 +764,295 @@ function createRunClock(duration) {
   return c;
 }
 
+/* ---------------- TRACK MODE: the Ridgeline Run ----------------
+   A second world beside the arena: a point-to-point downhill course,
+   ~5.6 km of mountain road descending exactly 400 m from a summit start
+   to a finish arch in the valley. The centerline is a Catmull-Rom spline
+   through the control points below, resampled every 4 m. The surface is
+   a projection heightfield: any plan position projects onto the nearest
+   centerline segment, giving (s, lat); the ribbon (|lat| <= 13) is the
+   road, banked into corners (up to ~6 degrees, from smoothed curvature);
+   13..45 m is an apron that blends down 10 m; beyond that, rolling valley
+   keyed to the nearest center height. Where two branches of the course
+   pass near each other, center heights blend with a tight Gaussian
+   falloff so switchback infields become steep hillsides, never steps,
+   and the road itself is never pulled (non-adjacent branches stay
+   >= ~49 m apart, where the blend weight is effectively zero). Six
+   feeder-style ramps sit on the road; stunts, gates and coins ride on
+   top of the same math as the arena. */
+var COURSE_CTRL = [
+  [0, -1500, 400], [20, -1350, 391], [90, -1210, 380], [230, -1100, 366],
+  [430, -1062, 352], [600, -1058, 340],
+  [760, -1052, 331], [822, -1044, 326], [852, -1024, 323], [862, -995, 321], [852, -966, 318], [822, -948, 315], [725, -942, 311],
+  [540, -928, 297], [320, -918, 280], [130, -930, 266],
+  [80, -926, 261], [-2, -922, 257], [-28, -904, 255], [-36, -876, 253], [-28, -848, 250], [2, -834, 246], [60, -830, 242],
+  [230, -838, 227], [430, -828, 213], [580, -840, 201],
+  [672, -838, 195], [742, -822, 190], [754, -795, 187], [746, -766, 184], [716, -750, 181], [655, -744, 177],
+  [545, -660, 164], [490, -540, 152], [520, -400, 139],
+  [545, -240, 127], [555, -60, 113], [550, 120, 97], [545, 300, 81],
+  [560, 450, 72], [590, 600, 63], [640, 730, 55],
+  [700, 800, 49], [725, 870, 45], [655, 905, 41], [545, 905, 36],
+  [450, 860, 24], [435, 985, 10], [425, 1120, 0]
+];
+function crInterp(p0, p1, p2, p3, t) {
+  var t2 = t * t, t3 = t2 * t;
+  return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+}
+function smoothArr(arr, r) {
+  var out = [], i, j, sum, n;
+  for (i = 0; i < arr.length; i++) {
+    sum = 0; n = 0;
+    for (j = Math.max(0, i - r); j <= Math.min(arr.length - 1, i + r); j++) { sum += arr[j]; n++; }
+    out.push(sum / n);
+  }
+  return out;
+}
+var CS = (function buildCourseSamples() {
+  var P = COURSE_CTRL, dense = [], i, j;
+  for (i = 0; i < P.length - 1; i++) {
+    var p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
+    var segLen = Math.sqrt((p2[0] - p1[0]) * (p2[0] - p1[0]) + (p2[1] - p1[1]) * (p2[1] - p1[1]));
+    var n = Math.max(4, Math.ceil(segLen / 6));
+    for (j = (i === 0 ? 0 : 1); j <= n; j++) {
+      var t = j / n;
+      dense.push([crInterp(p0[0], p1[0], p2[0], p3[0], t), crInterp(p0[1], p1[1], p2[1], p3[1], t), crInterp(p0[2], p1[2], p2[2], p3[2], t)]);
+    }
+  }
+  var cum = [0];
+  for (i = 1; i < dense.length; i++) cum.push(cum[i - 1] + Math.sqrt((dense[i][0] - dense[i - 1][0]) * (dense[i][0] - dense[i - 1][0]) + (dense[i][1] - dense[i - 1][1]) * (dense[i][1] - dense[i - 1][1])));
+  var total = cum[cum.length - 1];
+  var S = { x: [], z: [], h: [], s: [], tx: [], tz: [], kap: [], bank: [], length: 0 };
+  var di = 0, d;
+  for (d = 0; d <= total; d += 4) {
+    while (di < cum.length - 2 && cum[di + 1] < d) di++;
+    var segL = (cum[di + 1] - cum[di]) || 1, tt = (d - cum[di]) / segL;
+    S.x.push(dense[di][0] + (dense[di + 1][0] - dense[di][0]) * tt);
+    S.z.push(dense[di][1] + (dense[di + 1][1] - dense[di][1]) * tt);
+    S.h.push(dense[di][2] + (dense[di + 1][2] - dense[di][2]) * tt);
+    S.s.push(d);
+  }
+  var N = S.x.length;
+  S.length = S.s[N - 1];
+  for (i = 0; i < N; i++) {
+    var a = Math.max(0, i - 1), b = Math.min(N - 1, i + 1);
+    var dx = S.x[b] - S.x[a], dz = S.z[b] - S.z[a], l = Math.sqrt(dx * dx + dz * dz) || 1;
+    S.tx.push(dx / l); S.tz.push(dz / l);
+  }
+  var kapRaw = [];
+  for (i = 0; i < N; i++) {
+    var a2 = Math.max(0, i - 2), b2 = Math.min(N - 1, i + 2);
+    var dth = Math.atan2(S.tx[b2], S.tz[b2]) - Math.atan2(S.tx[a2], S.tz[a2]);
+    while (dth > Math.PI) dth -= 2 * Math.PI;
+    while (dth < -Math.PI) dth += 2 * Math.PI;
+    kapRaw.push(dth / Math.max(1, S.s[b2] - S.s[a2]));
+  }
+  S.kap = smoothArr(smoothArr(kapRaw, 3), 3);
+  var kapHeavy = smoothArr(smoothArr(kapRaw, 6), 6);
+  var bankRaw = kapHeavy.map(function (k) { return -clamp(3 * k, -0.105, 0.105); });
+  S.bank = smoothArr(smoothArr(bankRaw, 10), 10);
+  return S;
+})();
+/* Spatial hash over centerline samples for nearest lookups. */
+var CGRID = (function () {
+  var g = {}, i, key;
+  for (i = 0; i < CS.x.length; i++) {
+    key = Math.floor(CS.x[i] / 50) * 100000 + Math.floor(CS.z[i] / 50);
+    if (!g[key]) g[key] = [];
+    g[key].push(i);
+  }
+  return g;
+})();
+function courseNearestIdx(x, z) {
+  var cx = Math.floor(x / 50), cz = Math.floor(z / 50), ring, ix, iz, cell, i, idx;
+  var best = -1, bestD = Infinity;
+  for (ring = 0; ring <= 30; ring++) {
+    for (ix = cx - ring; ix <= cx + ring; ix++) {
+      for (iz = cz - ring; iz <= cz + ring; iz++) {
+        if (ring > 0 && ix > cx - ring && ix < cx + ring && iz > cz - ring && iz < cz + ring) continue;
+        cell = CGRID[ix * 100000 + iz];
+        if (!cell) continue;
+        for (i = 0; i < cell.length; i++) {
+          idx = cell[i];
+          var dx = CS.x[idx] - x, dz = CS.z[idx] - z, d2 = dx * dx + dz * dz;
+          if (d2 < bestD) { bestD = d2; best = idx; }
+        }
+      }
+    }
+    if (best >= 0 && ring * 50 > Math.sqrt(bestD) + 50) break;
+  }
+  return best;
+}
+function projSegment(i, x, z) {
+  var ax = CS.x[i], az = CS.z[i], bx = CS.x[i + 1], bz = CS.z[i + 1];
+  var abx = bx - ax, abz = bz - az, L2 = abx * abx + abz * abz || 1e-9;
+  var t = clamp(((x - ax) * abx + (z - az) * abz) / L2, 0, 1);
+  var px = ax + abx * t, pz = az + abz * t;
+  var dx = x - px, dz = z - pz;
+  var tl = Math.sqrt(L2), tx = abx / tl, tz = abz / tl;
+  var sx = tz, sz = -tx; // left vector in plan
+  return { dist: Math.sqrt(dx * dx + dz * dz), s: CS.s[i] + t * (CS.s[i + 1] - CS.s[i]),
+           lat: dx * sx + dz * sz, hC: CS.h[i] + t * (CS.h[i + 1] - CS.h[i]),
+           bank: CS.bank[i] + t * (CS.bank[i + 1] - CS.bank[i]), tx: tx, tz: tz };
+}
+/* Project a plan position onto the course: (s, lat) from the nearest
+   segment; center height and bank blended over the three nearest segment
+   projections with a tight Gaussian falloff, so the road is exact on the
+   ribbon and switchback infields blend into hillsides instead of steps. */
+function interpH(s) {
+  var f = s / 4, i = Math.max(0, Math.min(CS.h.length - 2, Math.floor(f))), t = f - i;
+  return CS.h[i] + (CS.h[i + 1] - CS.h[i]) * t;
+}
+function interpBank(s) {
+  var f = s / 4, i = Math.max(0, Math.min(CS.bank.length - 2, Math.floor(f))), t = f - i;
+  return CS.bank[i] + (CS.bank[i + 1] - CS.bank[i]) * t;
+}
+function projectToCourse(x, z) {
+  // Single best-projection frame: every nearby point shares the same frame,
+  // so heights and finite-difference normals stay clean (blending projections
+  // kinked the surface every few meters and tilted the tangent velocity).
+  var near = courseNearestIdx(x, z), best = null, i;
+  var lo = Math.max(0, near - 3), hi = Math.min(CS.x.length - 2, near + 3);
+  for (i = lo; i <= hi; i++) {
+    var pr = projSegment(i, x, z);
+    if (!best || pr.dist < best.dist) best = pr;
+  }
+  return { s: best.s, lat: best.lat, hC: interpH(best.s), bank: interpBank(best.s),
+           tx: best.tx, tz: best.tz, dist: best.dist };
+}
+function coursePointAt(s) {
+  s = clamp(s, 0, CS.length);
+  var f = s / 4, i = Math.min(CS.x.length - 2, Math.floor(f)), t = f - i;
+  var tx = CS.tx[i] + (CS.tx[i + 1] - CS.tx[i]) * t, tz = CS.tz[i] + (CS.tz[i + 1] - CS.tz[i]) * t;
+  var tl = Math.sqrt(tx * tx + tz * tz) || 1; tx /= tl; tz /= tl;
+  return { x: CS.x[i] + (CS.x[i + 1] - CS.x[i]) * t, z: CS.z[i] + (CS.z[i + 1] - CS.z[i]) * t,
+           h: CS.h[i] + (CS.h[i + 1] - CS.h[i]) * t, tx: tx, tz: tz, sx: tz, sz: -tx,
+           bank: CS.bank[i] + (CS.bank[i + 1] - CS.bank[i]) * t, kap: CS.kap[i] + (CS.kap[i + 1] - CS.kap[i]) * t };
+}
+function courseHills(x, z) {
+  return 7 * Math.sin(x * 0.006 + 1.7) * Math.cos(z * 0.005 - 0.6) +
+         5 * Math.sin(x * 0.0023 - 0.4) * Math.sin(z * 0.0031 + 2.1);
+}
+/* Six launch ramps on the road (s = lip base distance along the course).
+   Two sit in corner exits (after hairpins A and B), one is the big sender
+   on the longest straight, the rest on straights. */
+var COURSE_RAMPS = [
+  { s: 880,  len: 24, h: 6.5, half: 8 },
+  { s: 1330, len: 24, h: 6.5, half: 8 },
+  { s: 1670, len: 24, h: 7,   half: 8 },
+  { s: 2320, len: 24, h: 6.5, half: 8 },
+  { s: 3780, len: 32, h: 10,  half: 9 },
+  { s: 4450, len: 24, h: 7,   half: 8 }
+];
+function rampHeightAt(s, lat) {
+  var add = 0, i, r;
+  for (i = 0; i < COURSE_RAMPS.length; i++) {
+    r = COURSE_RAMPS[i];
+    if (s >= r.s && s <= r.s + r.len && Math.abs(lat) <= r.half) add += r.h * (s - r.s) / r.len;
+  }
+  return add;
+}
+/* The course heightfield. Returns {h, s, lat, zone}. */
+// Smooth far field: a precomputed grid blending (centerline height - 10)
+// over ALL course samples with a wide Gaussian, so the valley between
+// switchback legs at different heights is a smooth hillside. A per-point
+// nearest-branch blend cliffs along the medial axis between branches; the
+// grid cannot, and near the track the local branch dominates anyway.
+var FARGRID = (function () {
+  var minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9, i, j;
+  for (i = 0; i < CS.x.length; i++) {
+    if (CS.x[i] < minX) minX = CS.x[i]; if (CS.x[i] > maxX) maxX = CS.x[i];
+    if (CS.z[i] < minZ) minZ = CS.z[i]; if (CS.z[i] > maxZ) maxZ = CS.z[i];
+  }
+  var cell = 25, x0 = minX - 80, z0 = minZ - 80;
+  var nx = Math.ceil((maxX + 80 - x0) / cell) + 1, nz = Math.ceil((maxZ + 80 - z0) / cell) + 1;
+  var vals = new Float32Array(nx * nz);
+  for (j = 0; j < nz; j++) {
+    for (i = 0; i < nx; i++) {
+      var px = x0 + i * cell, pz = z0 + j * cell, sum = 0, wSum = 0, bestD = Infinity, bestH = 0;
+      for (var k = 0; k < CS.x.length; k++) {
+        var dx = CS.x[k] - px, dz = CS.z[k] - pz;
+        var d2 = dx * dx + dz * dz;
+        if (d2 < bestD) { bestD = d2; bestH = CS.h[k]; }
+        if (d2 > 160000) continue;
+        var w = Math.exp(-d2 / 14400);
+        sum += w * (CS.h[k] - 10); wSum += w;
+      }
+      vals[j * nx + i] = wSum > 1e-3 ? sum / wSum : bestH - 10;
+    }
+  }
+  return { x0: x0, z0: z0, cell: cell, nx: nx, nz: nz, vals: vals };
+})();
+function courseFarH(x, z) {
+  var gx = clamp((x - FARGRID.x0) / FARGRID.cell, 0, FARGRID.nx - 1.001);
+  var gz = clamp((z - FARGRID.z0) / FARGRID.cell, 0, FARGRID.nz - 1.001);
+  var ix = Math.floor(gx), iz = Math.floor(gz), fx = gx - ix, fz = gz - iz, nx = FARGRID.nx, v = FARGRID.vals;
+  var a = v[iz * nx + ix], b = v[iz * nx + ix + 1], c = v[(iz + 1) * nx + ix], d = v[(iz + 1) * nx + ix + 1];
+  return (a + (b - a) * fx) + ((c + (d - c) * fx) - (a + (b - a) * fx)) * fz;
+}
+function courseHeight(x, z, withRamps) {
+  var pr = projectToCourse(x, z);
+  var d = Math.abs(pr.lat), sgn = pr.lat < 0 ? -1 : 1, h, zone;
+  if (d <= 13) { h = pr.hC + pr.lat * pr.bank; zone = 'track'; }
+  else {
+    var edge = pr.hC + sgn * 13 * pr.bank;
+    var farH = courseFarH(x, z) +
+      courseHills(x, z) * clamp((d - 40) / 60, 0, 1);
+    if (d < 45) {
+      var t = (d - 13) / 32, ts = t * t * (3 - 2 * t);
+      h = edge + (farH - edge) * ts; zone = 'apron';
+    } else { h = farH; zone = 'valley'; }
+  }
+  if (withRamps) h += rampHeightAt(pr.s, pr.lat);
+  return { h: h, s: pr.s, lat: pr.lat, zone: zone };
+}
+function courseHeightAt(x, z) { return courseHeight(x, z, true).h; }
+function courseSurf(x, z, withRamps) {
+  var e = 0.6;
+  var c = courseHeight(x, z, withRamps);
+  var gx = (courseHeight(x + e, z, withRamps).h - courseHeight(x - e, z, withRamps).h) / (2 * e);
+  var gz = (courseHeight(x, z + e, withRamps).h - courseHeight(x, z - e, withRamps).h) / (2 * e);
+  return surf(c.h, gx, gz, c.zone, 0);
+}
+function courseSurfAt(x, z) { return courseSurf(x, z, true); }
+function courseBaseSurfAt(x, z) { return courseSurf(x, z, false); }
+/* Checkpoint gates: 9, spread along the course. Crossing one on the road
+   pays +8 seconds (handled in the game step). */
+var COURSE_GATES = [0.09, 0.19, 0.30, 0.40, 0.51, 0.61, 0.72, 0.82, 0.92].map(function (f) { return f * CS.length; });
+/* Course coins: 22 on the racing line plus 3 per ramp (lip + two on the
+   launch trajectory), 40 in all. Positions are world coordinates baked
+   from (s, lat) at load. */
+var COURSE_COINS = (function () {
+  var list = [], lats = [0, -5, 4, 0, 6, -4, 3, 0, -6, 5], k, r, j;
+  function coinAt(s, lat, dy, yAbs) {
+    var p = coursePointAt(s);
+    var wx = p.x + p.sx * lat, wz = p.z + p.sz * lat;
+    var y = (yAbs !== null && yAbs !== undefined) ? yAbs : courseHeightAt(wx, wz) + dy;
+    list.push({ x: wx, y: y, z: wz, tier: 'track' });
+  }
+  for (k = 0; k < 22; k++) coinAt(200 + k * 135, lats[k % lats.length], 3.6, null);
+  for (j = 0; j < COURSE_RAMPS.length; j++) {
+    r = COURSE_RAMPS[j];
+    var lip = coursePointAt(r.s + r.len), lipH = courseHeightAt(lip.x, lip.z);
+    coinAt(r.s + r.len - 2, 0, 3.6, null);
+    coinAt(r.s + r.len + 22, 0, 0, lipH + 8);
+    coinAt(r.s + r.len + 48, 0, 0, lipH + 10.5);
+  }
+  return list;
+})();
+var COURSE = (function () {
+  var minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9, i;
+  for (i = 0; i < CS.x.length; i++) {
+    if (CS.x[i] < minX) minX = CS.x[i]; if (CS.x[i] > maxX) maxX = CS.x[i];
+    if (CS.z[i] < minZ) minZ = CS.z[i]; if (CS.z[i] > maxZ) maxZ = CS.z[i];
+  }
+  var start = coursePointAt(0);
+  return { length: CS.length, descent: CS.h[0] - CS.h[CS.h.length - 1],
+           gates: COURSE_GATES, ramps: COURSE_RAMPS, coinCount: COURSE_COINS.length,
+           start: { x: start.x, z: start.z, heading: Math.atan2(start.tx, start.tz) },
+           bounds: { minX: minX, maxX: maxX, minZ: minZ, maxZ: maxZ, cx: (minX + maxX) / 2, cz: (minZ + maxZ) / 2 },
+           bound: Math.max(Math.abs(minX), Math.abs(maxX), Math.abs(minZ), Math.abs(maxZ)) + 900 };
+})();
+
 /* ---------------- the car simulation ---------------- */
 var WHEEL = 0.35; // car origin height above its surface
 var ZERO_INPUT = { steer: 0, brake: false, handbrake: false, airPitch: 0, airRoll: 0, stabilize: false, tap: false };
@@ -767,7 +1074,17 @@ function createGame(tune) {
   var g = { tune: tune, car: car, scoring: scoring, clock: clock, coins: coins,
             now: 0, coinsCollected: 0, events: [], started: false, over: false,
             mode: 'attack', heat: 0, heatInfo: null, breather: false, breatherT: 0,
-            shuffleOn: false, seed: 1 };
+            shuffleOn: false, seed: 1, track: null };
+
+  /* World dispatch: the arena is the default and its surface functions are
+     called exactly as before. In Track mode the same physics runs on the
+     course heightfield instead (a single surface everywhere), the room
+     wall clamp widens to the course bound, and the arena's stacked-side
+     collisions (rim, deck, Rail) simply do not exist. */
+  var world = 'arena', wallLim = WALL;
+  function surfList(x, z) { return world === 'course' ? [courseSurfAt(x, z)] : surfacesAt(x, z); }
+  function surfTerrain(x, z) { return world === 'course' ? courseSurfAt(x, z) : terrainAt(x, z); }
+  function surfBelow(x, z, y) { return world === 'course' ? courseSurfAt(x, z) : groundBelowAt(x, z, y); }
 
   function placeCar() {
     car.x = 0; car.z = 470; car.heading = Math.PI; car.speed = 0;
@@ -779,6 +1096,17 @@ function createGame(tune) {
     car.accPitch = 0; car.accRoll = 0; car.accYaw = 0; car.rightT = 0;
   }
   placeCar();
+
+  function placeCarCourse() {
+    var st = COURSE.start;
+    car.x = st.x; car.z = st.z; car.heading = st.heading; car.speed = 0;
+    car.vx = 0; car.vy = 0; car.vz = 0; car.wx = 0; car.wy = 0; car.wz = 0;
+    car.surf = courseSurfAt(car.x, car.z);
+    car.y = car.surf.h + WHEEL;
+    car.q = groundQuat(car.heading, car.surf.nx, car.surf.ny, car.surf.nz);
+    car.mode = 'ground'; car.airTime = 0; car.wings = false; car.corkscrew = false;
+    car.accPitch = 0; car.accRoll = 0; car.accYaw = 0; car.rightT = 0;
+  }
 
   function beginHeat(n, fresh) {
     var L = ladderHeat(n);
@@ -792,17 +1120,33 @@ function createGame(tune) {
   g.beginHeat = beginHeat;
   g.reset = function (opts) {
     opts = opts || {};
-    g.mode = opts.mode === 'ladder' ? 'ladder' : 'attack';
+    g.mode = opts.mode === 'ladder' ? 'ladder' : (opts.mode === 'track' ? 'track' : 'attack');
+    world = g.mode === 'track' ? 'course' : 'arena';
+    wallLim = world === 'course' ? COURSE.bound : WALL;
     g.shuffleOn = !!opts.shuffle;
     g.seed = (opts.seed | 0) || 1;
     scoring.reset();
-    coins = dealCoins(g.seed, g.shuffleOn).map(function (c) {
-      return { x: c.x, y: c.y, z: c.z, tier: c.tier, taken: false };
-    });
+    if (g.mode === 'track') {
+      coins = COURSE_COINS.map(function (c) {
+        return { x: c.x, y: c.y, z: c.z, tier: c.tier, taken: false };
+      });
+    } else {
+      coins = dealCoins(g.seed, g.shuffleOn).map(function (c) {
+        return { x: c.x, y: c.y, z: c.z, tier: c.tier, taken: false };
+      });
+    }
     g.coins = coins;
     g.coinsCollected = 0; g.events = []; g.now = 0; g.over = false; g.started = true;
-    g.breather = false; g.breatherT = 0;
+    g.breather = false; g.breatherT = 0; g.track = null;
     if (g.mode === 'ladder') { beginHeat(opts.heat || 1, true); }
+    else if (g.mode === 'track') {
+      g.heat = 0; g.heatInfo = null;
+      setGates({ rim: false, deck: false });
+      clock = createRunClock(75); g.clock = clock;
+      g.track = { s: 0, lat: 0, percent: 0, gatesHit: 0, finished: false, time: 0,
+                  gateHit: COURSE_GATES.map(function () { return false; }) };
+      placeCarCourse(); clock.start();
+    }
     else {
       g.heat = 0; g.heatInfo = null;
       setGates({ rim: false, deck: false });
@@ -820,7 +1164,7 @@ function createGame(tune) {
      Floating structures the car passes beneath (deck, rail, deck ramps high
      above it) do not count. The rim always counts: its side is a wall. */
   function faceTopAt(px, pz, refBottom) {
-    var list = surfacesAt(px, pz), i, s, top = null;
+    var list = surfList(px, pz), i, s, top = null;
     for (i = 0; i < list.length; i++) {
       s = list[i];
       if (s.stacked && s.zone !== 'rim' && s.under > refBottom + 1.2) continue;
@@ -906,9 +1250,11 @@ function createGame(tune) {
     var my = car.y + tv.y * sdt;
     /* Room walls: clamp the candidate to the wall line. Only the axis that
        crossed is clamped, so the tangential part of the move survives in
-       full: the car slides along the wall instead of stopping against it. */
-    if (mx > WALL) mx = WALL; if (mx < -WALL) mx = -WALL;
-    if (mz > WALL) mz = WALL; if (mz < -WALL) mz = -WALL;
+       full: the car slides along the wall instead of stopping against it.
+       On the course the same clamp sits at the course bound, far outside
+       the valley: a formality that keeps the world finite. */
+    if (mx > wallLim) mx = wallLim; if (mx < -wallLim) mx = -wallLim;
+    if (mz > wallLim) mz = wallLim; if (mz < -wallLim) mz = -wallLim;
     var dist = Math.sqrt((mx - prevX) * (mx - prevX) + (mz - prevZ) * (mz - prevZ));
     var allow = dist * 2.5 + 0.05;
     /* Face contact: a solid surface rising faster than any real slope in
@@ -930,8 +1276,8 @@ function createGame(tune) {
         else if (!faceAt(prevX, mz, allow, prevBottom)) { mx = prevX; }
         else { mx = prevX; mz = prevZ; }
       }
-      if (mx > WALL) mx = WALL; if (mx < -WALL) mx = -WALL;
-      if (mz > WALL) mz = WALL; if (mz < -WALL) mz = -WALL;
+      if (mx > wallLim) mx = wallLim; if (mx < -wallLim) mx = -wallLim;
+      if (mz > wallLim) mz = wallLim; if (mz < -wallLim) mz = -wallLim;
       dist = Math.sqrt((mx - prevX) * (mx - prevX) + (mz - prevZ) * (mz - prevZ));
       allow = dist * 2.5 + 0.05;
     }
@@ -948,7 +1294,7 @@ function createGame(tune) {
     /* Resting surface: the highest surface the car could have climbed to in
        this substep. Anything higher is a face it slid along, or a floating
        structure it is passing beneath. */
-    var list = surfacesAt(car.x, car.z), cand = list[list.length - 1], i2;
+    var list = surfList(car.x, car.z), cand = list[list.length - 1], i2;
     for (i2 = 0; i2 < list.length; i2++) { if (list[i2].h <= prevBottom + allow) { cand = list[i2]; break; } }
     var newBottom = my - WHEEL;
     if (cand.h >= newBottom - 0.001) {
@@ -1106,16 +1452,17 @@ function createGame(tune) {
     for (si = 0; si < nSub; si++) {
       var spx = car.x, spz = car.z;
       var prevBottom = car.y - WHEEL;
-      var prevSurfH = terrainAt(car.x, car.z).h;
+      var prevSurfH = surfTerrain(car.x, car.z).h;
       car.x += car.vx * sdt; car.y += car.vy * sdt; car.z += car.vz * sdt;
       /* Room walls: clamp to the wall line and remove ONLY the velocity
          component into the wall. The tangential component survives in
-         full: the car slides along the wall, it never bounces or stops. */
-      if (car.x > WALL) { car.x = WALL; if (car.vx > 0) car.vx = 0; }
-      if (car.x < -WALL) { car.x = -WALL; if (car.vx < 0) car.vx = 0; }
-      if (car.z > WALL) { car.z = WALL; if (car.vz > 0) car.vz = 0; }
-      if (car.z < -WALL) { car.z = -WALL; if (car.vz < 0) car.vz = 0; }
-      var bottom = car.y - WHEEL, list = surfacesAt(car.x, car.z), i, s, grazed = false;
+         full: the car slides along the wall, it never bounces or stops.
+         On the course the clamp sits at the course bound, out of play. */
+      if (car.x > wallLim) { car.x = wallLim; if (car.vx > 0) car.vx = 0; }
+      if (car.x < -wallLim) { car.x = -wallLim; if (car.vx < 0) car.vx = 0; }
+      if (car.z > wallLim) { car.z = wallLim; if (car.vz > 0) car.vz = 0; }
+      if (car.z < -wallLim) { car.z = -wallLim; if (car.vz < 0) car.vz = 0; }
+      var bottom = car.y - WHEEL, list = surfList(car.x, car.z), i, s, grazed = false;
       for (i = 0; i < list.length; i++) {
         s = list[i];
         if (prevBottom >= s.h - 0.02 && bottom <= s.h && car.vy <= 1.5) { land(s); return; }
@@ -1138,9 +1485,9 @@ function createGame(tune) {
           break;
         }
       }
-      if (!grazed) sideCollideAir(spx, spz);
+      if (!grazed && world === 'arena') sideCollideAir(spx, spz);
     }
-    if (car.y < -40) land(groundBelowAt(car.x, car.z, 1e6)); // safety net (below the bowl's -10 floor), should not happen
+    if (car.y < -40) land(surfBelow(car.x, car.z, 1e6)); // safety net (below the bowl's -10 floor), should not happen
   }
 
   function collectCoins() {
@@ -1167,6 +1514,34 @@ function createGame(tune) {
     g.breather = true; g.breatherT = 10;
     placeCar();
   }
+  /* Track mode progress: gates pay +8s when crossed on the road, the
+     finish arch ends the run, and the tally data rides on g.track. */
+  function trackUpdate() {
+    var trk = g.track;
+    if (!trk) return;
+    var pr = projectToCourse(car.x, car.z);
+    var prevS = trk.s;
+    trk.s = pr.s; trk.lat = pr.lat;
+    trk.percent = clamp(pr.s / COURSE.length * 100, 0, 100);
+    if (clock.phase === 'running') {
+      for (var i = 0; i < COURSE_GATES.length; i++) {
+        if (!trk.gateHit[i] && prevS < COURSE_GATES[i] && pr.s >= COURSE_GATES[i] && Math.abs(pr.lat) <= 13.5) {
+          trk.gateHit[i] = true; trk.gatesHit++;
+          clock.addTime(8);
+          g.events.push({ type: 'gate', n: trk.gatesHit, total: COURSE_GATES.length, bonus: 8 });
+        }
+      }
+    }
+    if (!trk.finished && pr.s >= COURSE.length - 2 && Math.abs(pr.lat) <= 13.5) {
+      trk.finished = true; trk.time = g.now;
+      g.over = true;
+      g.events.push({ type: 'runover', mode: 'track', finished: true, time: g.now,
+                      gates: trk.gatesHit, gatesTotal: COURSE_GATES.length,
+                      coins: g.coinsCollected, coinsTotal: coins.length,
+                      score: scoring.state.score, bestCombo: scoring.state.maxMult,
+                      biggest: scoring.state.biggestBank, percent: 100 });
+    }
+  }
   g.step = function (dt, input) {
     if (!g.started) return;
     g.now += dt;
@@ -1180,6 +1555,7 @@ function createGame(tune) {
     if (car.mode === 'ground') stepGround(dt, inp);
     else if (car.mode === 'air') stepAir(dt, inp);
     collectCoins();
+    if (g.mode === 'track' && !g.over) trackUpdate();
     if (g.over) return;
     if (g.mode === 'ladder') {
       if (clock.phase === 'running' && scoring.state.score >= g.heatInfo.target) {
@@ -1197,8 +1573,18 @@ function createGame(tune) {
       }
     } else if (clock.phase === 'done') {
       g.over = true;
-      g.events.push({ type: 'runover', score: scoring.state.score, bestCombo: scoring.state.maxMult,
-                      biggest: scoring.state.biggestBank, coins: g.coinsCollected });
+      if (g.mode === 'track') {
+        var trk2 = g.track;
+        g.events.push({ type: 'runover', mode: 'track', finished: false,
+                        percent: trk2 ? trk2.percent : 0,
+                        gates: trk2 ? trk2.gatesHit : 0, gatesTotal: COURSE_GATES.length,
+                        coins: g.coinsCollected, coinsTotal: coins.length,
+                        score: scoring.state.score, bestCombo: scoring.state.maxMult,
+                        biggest: scoring.state.biggestBank });
+      } else {
+        g.events.push({ type: 'runover', score: scoring.state.score, bestCombo: scoring.state.maxMult,
+                        biggest: scoring.state.biggestBank, coins: g.coinsCollected });
+      }
     }
   };
   return g;
@@ -1212,6 +1598,9 @@ global.CF = {
   LADDER: LADDER, ladderHeat: ladderHeat, gatesForHeat: gatesForHeat,
   setGates: setGates, getGates: getGates,
   FEEDERS: FEEDERS, RAIL: RAIL, BOWL: BOWL, WALL: WALL, RIM_EDGE: RIM_EDGE,
+  COURSE: COURSE, COURSE_COINS: COURSE_COINS, COURSE_GATES: COURSE_GATES, COURSE_RAMPS: COURSE_RAMPS,
+  courseSurfAt: courseSurfAt, courseBaseSurfAt: courseBaseSurfAt,
+  courseHeightAt: courseHeightAt, projectToCourse: projectToCourse, coursePointAt: coursePointAt,
   createScoring: createScoring, createRunClock: createRunClock, createGame: createGame
 };
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -1544,15 +1933,17 @@ var coinMeshes = [], coinPillars = [];
   var rimGeo = new THREE.TorusGeometry(3.6, 0.28, 10, 32);
   var rimMat = new THREE.MeshBasicMaterial({ color: INK_HEX }); // ink ring: the coin's printed outline
   var pillarGeo = new THREE.CylinderGeometry(0.56, 1.2, 28, 10, 1, true);
-  for (var i = 0; i < CF.COINS.length; i++) {
+  var coinCount = Math.max(CF.COINS.length, CF.COURSE_COINS.length); // meshes serve both worlds; the frame loop hides the extras
+  for (var i = 0; i < coinCount; i++) {
+    var src = CF.COINS[i % CF.COINS.length];
     var m = new THREE.Mesh(geo, mat);
-    m.position.set(CF.COINS[i].x, CF.COINS[i].y, CF.COINS[i].z);
+    m.position.set(src.x, src.y, src.z);
     var rim = new THREE.Mesh(rimGeo, rimMat); m.add(rim);
     scene.add(m); coinMeshes.push(m);
     var pillar = new THREE.Mesh(pillarGeo, new THREE.MeshBasicMaterial({
       color: 0xffc44d, transparent: true, opacity: 0,
       side: THREE.DoubleSide, depthWrite: false, fog: false })); // flat translucent gold band
-    pillar.position.set(CF.COINS[i].x, CF.COINS[i].y + 14, CF.COINS[i].z);
+    pillar.position.set(src.x, src.y + 14, src.z);
     scene.add(pillar); coinPillars.push(pillar);
   }
 })();
@@ -1617,6 +2008,153 @@ var shadowMesh;
   scene.add(shadowMesh);
 })();
 
+
+/* ---------- track world: the Ridgeline Run (shown only in Track mode) ---------- */
+var courseGroup = new THREE.Group();
+courseGroup.visible = false;
+scene.add(courseGroup);
+var arenaObjs = scene.children.filter(function (o) {
+  if (o === carGroup || o === shadowMesh || o === courseGroup || o === terrainMesh) return false;
+  if (o.isLight) return false;
+  if (coinMeshes.indexOf(o) >= 0 || coinPillars.indexOf(o) >= 0) return false;
+  if (o.geometry && o.geometry.type === 'SphereGeometry') return false; // the sky dome stays for both worlds
+  return true;
+});
+var worldTrack = false;
+function setWorld(track) {
+  worldTrack = track;
+  for (var i = 0; i < arenaObjs.length; i++) arenaObjs[i].visible = !track;
+  if (terrainMesh) terrainMesh.visible = !track;
+  courseGroup.visible = track;
+}
+(function buildCourse() {
+  var step = 6, n = Math.floor(CF.COURSE.length / step);
+  // corridor ribbon: one mesh, heights from the same surface math as physics
+  var LATS = [-60, -45, -32, -22, -16, -13, -8, -4, 0, 4, 8, 13, 16, 22, 32, 45, 60];
+  var W = LATS.length, positions = [], colors = [], uvs = [], indices = [];
+  var col = new THREE.Color();
+  var zoneCol = { track: 0xd95f38, apron: 0x16805f, valley: 0x14705f };
+  for (var i = 0; i <= n; i++) {
+    var s = Math.min(i * step, CF.COURSE.length);
+    var p = CF.coursePointAt(s);
+    for (var k = 0; k < LATS.length; k++) {
+      var x = p.x + p.sx * LATS[k], z = p.z + p.sz * LATS[k];
+      var sf = CF.courseBaseSurfAt(x, z);
+      positions.push(x, sf.h, z);
+      col.setHex(zoneCol[sf.zone] || 0x14705f);
+      colors.push(col.r, col.g, col.b);
+      uvs.push(s / 30, LATS[k] / 30);
+    }
+  }
+  for (var a = 0; a < n; a++) for (var b = 0; b < W - 1; b++) {
+    var i0 = a * W + b, i1 = i0 + 1, i2 = i0 + W, i3 = i2 + 1;
+    indices.push(i0, i2, i1, i1, i2, i3);
+  }
+  var geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  courseGroup.add(new THREE.Mesh(geo, terrainMat));
+  // ink edge strips along both ribbon edges
+  [-12.6, 12.6].forEach(function (latE) {
+    var ep = [], ei = [];
+    for (var i = 0; i <= n; i++) {
+      var s = Math.min(i * step, CF.COURSE.length);
+      var p = CF.coursePointAt(s);
+      [-0.7, 0.7].forEach(function (off) {
+        var x = p.x + p.sx * (latE + off), z = p.z + p.sz * (latE + off);
+        ep.push(x, CF.courseBaseSurfAt(x, z).h + 0.14, z);
+      });
+    }
+    for (var a2 = 0; a2 < n; a2++) {
+      var j0 = a2 * 2, j1 = j0 + 1, j2 = j0 + 2, j3 = j0 + 3;
+      ei.push(j0, j2, j1, j1, j2, j3);
+    }
+    var eg = new THREE.BufferGeometry();
+    eg.setAttribute('position', new THREE.Float32BufferAttribute(ep, 3));
+    eg.setIndex(ei);
+    eg.computeVertexNormals();
+    courseGroup.add(new THREE.Mesh(eg, lam(INK_HEX)));
+  });
+  // rolling valley far below and beyond the corridor
+  var vg = new THREE.PlaneGeometry(6400, 6400, 150, 150);
+  vg.rotateX(-Math.PI / 2);
+  var vpos = vg.attributes.position, vcol = new Float32Array(vpos.count * 3);
+  var vc = new THREE.Color(0x14705f);
+  for (var vi = 0; vi < vpos.count; vi++) {
+    var vx = vpos.getX(vi) + CF.COURSE.bounds.cx, vz = vpos.getZ(vi) + CF.COURSE.bounds.cz;
+    var hh = CF.courseHeightAt(vx, vz);
+    if (Math.abs(CF.projectToCourse(vx, vz).lat) < 70) hh -= 0.5; // the corridor mesh wins the corridor
+    vpos.setX(vi, vx); vpos.setZ(vi, vz); vpos.setY(vi, hh);
+    vcol[vi * 3] = vc.r; vcol[vi * 3 + 1] = vc.g; vcol[vi * 3 + 2] = vc.b;
+  }
+  vg.setAttribute('color', new THREE.BufferAttribute(vcol, 3));
+  vg.computeVertexNormals();
+  courseGroup.add(new THREE.Mesh(vg, terrainMat));
+  // launch ramp patches, printed amber over the corridor
+  var rampMat = new THREE.MeshToonMaterial({ color: 0xd98e32, map: groundTex, gradientMap: TOON_GRAD });
+  CF.COURSE_RAMPS.forEach(function (r) {
+    var rp = [], ru = [], ri = [];
+    var sFrom = r.s - 3, sTo = r.s + r.len + 9, sN = Math.round((sTo - sFrom) / 3), lN = 6;
+    for (var si = 0; si <= sN; si++) {
+      var ss = sFrom + (sTo - sFrom) * si / sN;
+      var pp = CF.coursePointAt(Math.min(ss, CF.COURSE.length));
+      for (var li = 0; li <= lN; li++) {
+        var ll = -(r.half + 4) + (r.half + 4) * 2 * li / lN;
+        var xx = pp.x + pp.sx * ll, zz = pp.z + pp.sz * ll;
+        rp.push(xx, CF.courseHeightAt(xx, zz) + 0.06, zz);
+        ru.push(ss / 30, ll / 30);
+      }
+    }
+    for (var a3 = 0; a3 < sN; a3++) for (var b3 = 0; b3 < lN; b3++) {
+      var k0 = a3 * (lN + 1) + b3, k1 = k0 + 1, k2 = k0 + lN + 1, k3 = k2 + 1;
+      ri.push(k0, k2, k1, k1, k2, k3);
+    }
+    var rg = new THREE.BufferGeometry();
+    rg.setAttribute('position', new THREE.Float32BufferAttribute(rp, 3));
+    rg.setAttribute('uv', new THREE.Float32BufferAttribute(ru, 2));
+    rg.setIndex(ri);
+    rg.computeVertexNormals();
+    courseGroup.add(new THREE.Mesh(rg, rampMat));
+  });
+  // checkpoint gates and the finish arch: ink posts plus a flat banner
+  function bannerTex(text, accent) {
+    var cv = document.createElement('canvas'); cv.width = 512; cv.height = 96;
+    var cx2 = cv.getContext('2d');
+    cx2.fillStyle = '#0b3d33'; cx2.fillRect(0, 0, 512, 96);
+    cx2.strokeStyle = accent; cx2.lineWidth = 7; cx2.strokeRect(5, 5, 502, 86);
+    cx2.fillStyle = '#eafff5'; cx2.font = '900 50px system-ui, sans-serif';
+    cx2.textAlign = 'center'; cx2.textBaseline = 'middle';
+    cx2.fillText(text, 256, 54);
+    return new THREE.CanvasTexture(cv);
+  }
+  function makeGate(sPos, label, accent, postH) {
+    var p = CF.coursePointAt(sPos);
+    var grp = new THREE.Group();
+    var centerH = CF.courseBaseSurfAt(p.x, p.z).h;
+    grp.position.set(p.x, centerH, p.z);
+    grp.rotation.y = Math.atan2(p.tx, p.tz);
+    var postGeo = new THREE.BoxGeometry(1.1, postH, 1.1);
+    var postMat = lam(INK_HEX), tops = [];
+    [-14, 14].forEach(function (latP) {
+      var bx = p.x + p.sx * latP, bz = p.z + p.sz * latP;
+      var base = CF.courseBaseSurfAt(bx, bz).h;
+      var post = new THREE.Mesh(postGeo, postMat);
+      post.position.set(latP, (base - centerH) + postH / 2, 0);
+      grp.add(post);
+      tops.push((base - centerH) + postH);
+    });
+    var banner = new THREE.Mesh(new THREE.PlaneGeometry(29.2, 3.6),
+      new THREE.MeshBasicMaterial({ map: bannerTex(label, accent), side: THREE.DoubleSide }));
+    banner.position.set(0, (tops[0] + tops[1]) / 2 - 1.6, 0);
+    grp.add(banner);
+    courseGroup.add(grp);
+  }
+  CF.COURSE_GATES.forEach(function (gs, gi) { makeGate(gs, 'GATE ' + (gi + 1), '#19f0a0', 11); });
+  makeGate(CF.COURSE.length, 'FINISH', '#ffc44d', 14);
+})();
 
 /* ---------- tuning (persisted, live) ---------- */
 function loadJSON(key) { try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
@@ -1737,12 +2275,22 @@ var ladderBests = { heat: 0, score: 0 };
   var s = parseInt(localStorage.getItem('cf-best-ladder-score') || '0', 10);
   if (!isNaN(h)) ladderBests.heat = h; if (!isNaN(s)) ladderBests.score = s;
 })();
+var trackBests = { time: 0 };
+(function loadTrackBests() {
+  var t = parseFloat(localStorage.getItem('cf-best-track-time') || '0');
+  if (!isNaN(t) && t > 0) trackBests.time = t;
+})();
+function fmtTime(sec) {
+  var m = Math.floor(sec / 60), s = sec - m * 60;
+  return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1);
+}
 function syncMenuBests() {
-  var a = document.getElementById('attackBest'), l = document.getElementById('ladderBest');
+  var a = document.getElementById('attackBest'), l = document.getElementById('ladderBest'), t = document.getElementById('trackBest');
   if (a) a.textContent = bests.score > 0 ?
     'BEST ' + bests.score.toLocaleString() + ' · COMBO x' + bests.combo.toFixed(1) + ' · COINS ' + bests.coins + '/24' : 'NO RUNS YET';
   if (l) l.textContent = ladderBests.heat > 0 ?
     'BEST · HEAT ' + ladderBests.heat + ' · ' + ladderBests.score.toLocaleString() : 'NO RUNS YET';
+  if (t) t.textContent = trackBests.time > 0 ? 'BEST · ' + fmtTime(trackBests.time) : 'NO FINISH YET';
 }
 syncMenuBests();
 
@@ -1819,7 +2367,7 @@ function buildInput() {
 
 /* ---------- HUD ---------- */
 var el = {};
-['score', 'pending', 'clock', 'coins', 'speed', 'comboMult', 'fuse', 'banner', 'heatLabel'].forEach(function (id) { el[id] = document.getElementById(id); });
+['score', 'pending', 'clock', 'coins', 'speed', 'comboMult', 'fuse', 'banner', 'heatLabel', 'trackHud', 'gateLabel', 'prog'].forEach(function (id) { el[id] = document.getElementById(id); });
 var bannerUntil = 0, bannerSticky = false, final10Shown = false;
 function showBanner(text, cls, dur) {
   el.banner.textContent = text;
@@ -1846,7 +2394,10 @@ function drainEvents() {
       }
     } else if (ev.type === 'coin') {
       buzz(8);
-      if (performance.now() > bannerUntil) showBanner('COIN ' + ev.count + '/24' + (ev.timeBonus ? ' · +' + ev.timeBonus + 's' : ''), 'small', 700);
+      if (performance.now() > bannerUntil) showBanner('COIN ' + ev.count + '/' + game.coins.length + (ev.timeBonus ? ' · +' + ev.timeBonus + 's' : ''), 'small', 700);
+    } else if (ev.type === 'gate') {
+      buzz(8);
+      showBanner('GATE ' + ev.n + '/' + ev.total + ' · +8s', 'small', 900);
     } else if (ev.type === 'timePenalty') {
       showBanner('BAD LANDING -3s', 'bad', 900);
     } else if (ev.type === 'heatStart') {
@@ -1881,6 +2432,24 @@ function onRunOver(ev) {
   document.getElementById('tallySummary').textContent = summary;
   var scoreEl = document.getElementById('tallyScore');
   var nbEl = document.getElementById('tallyNewBest');
+  if (ev.mode === 'track') {
+    var isTimeBest = !!(ev.finished && (trackBests.time <= 0 || ev.time < trackBests.time));
+    if (isTimeBest) { trackBests.time = ev.time; try { localStorage.setItem('cf-best-track-time', String(ev.time)); } catch (e) {} }
+    document.getElementById('tallyTitle').textContent = ev.finished ? 'FINISH' : 'OUT OF TIME';
+    nbEl.style.display = isTimeBest ? 'block' : 'none';
+    scoreEl.textContent = ev.finished ? fmtTime(ev.time) : Math.floor(ev.percent) + '%';
+    scoreEl.className = isTimeBest ? 'gold' : '';
+    document.getElementById('tallyRows').innerHTML =
+      'GATES <b>' + ev.gates + '/' + ev.gatesTotal + '</b><br>' +
+      'COINS <b>' + ev.coins + '/' + ev.coinsTotal + '</b><br>' +
+      'BIGGEST STUNT <b>' + ev.biggest.toLocaleString() + '</b><br>' +
+      'SCORE <b>' + ev.score.toLocaleString() + '</b>';
+    document.getElementById('tallyBests').textContent =
+      trackBests.time > 0 ? 'TRACK BEST · ' + fmtTime(trackBests.time) : 'NO FINISH YET';
+    document.getElementById('tallyScreen').style.display = 'flex';
+    syncMenuBests();
+    return;
+  }
   if (ev.mode === 'ladder') {
     var ladBest = ev.score > ladderBests.score || ev.heat > ladderBests.heat;
     if (ev.heat > ladderBests.heat) { ladderBests.heat = ev.heat; try { localStorage.setItem('cf-best-ladder-heat', String(ev.heat)); } catch (e) {} }
@@ -1934,7 +2503,12 @@ function updateHUD() {
     el.banner.textContent = 'LAND IT'; el.banner.className = 'hud'; el.banner.style.opacity = '1'; bannerSticky = true;
   } else if (bannerSticky) { bannerSticky = false; el.banner.style.opacity = '0'; }
   else if (performance.now() > bannerUntil) el.banner.style.opacity = '0';
-  el.coins.textContent = '● ' + game.coinsCollected + '/24';
+  el.coins.textContent = '● ' + game.coinsCollected + '/' + game.coins.length;
+  if (game.mode === 'track' && game.track) {
+    el.trackHud.style.display = 'block';
+    el.gateLabel.textContent = 'GATES ' + game.track.gatesHit + '/' + CF.COURSE.gates.length;
+    el.prog.style.width = game.track.percent.toFixed(1) + '%';
+  } else el.trackHud.style.display = 'none';
   if (game.mode === 'ladder' && game.started) {
     el.heatLabel.textContent = game.breather ? 'HEAT ' + game.heat + ' CLEARED' :
       'HEAT ' + game.heat + ' · TARGET ' + game.heatInfo.target.toLocaleString();
@@ -1971,6 +2545,7 @@ function startRun(mode) {
   setHeatFog(0);
   var seed = settings.shuffle ? (Date.now() % 2147483646) + 1 : 1;
   game.reset({ mode: mode, shuffle: settings.shuffle, seed: seed });
+  setWorld(mode === 'track');
   document.getElementById('pauseBtn').style.display = 'flex';
   countdown = 3; goUntil = 0;
   cdEl.textContent = '3'; cdEl.style.display = 'block';
@@ -1978,6 +2553,7 @@ function startRun(mode) {
 }
 document.getElementById('startBtn').addEventListener('click', function () { startRun('attack'); });
 document.getElementById('ladderBtn').addEventListener('click', function () { startRun('ladder'); });
+document.getElementById('trackBtn').addEventListener('click', function () { startRun('track'); });
 document.getElementById('againBtn').addEventListener('click', function () { startRun(currentMode); });
 document.getElementById('menuBtn').addEventListener('click', quitToMenu);
 document.getElementById('howtoBtn').addEventListener('click', function () { document.getElementById('howtoPanel').classList.add('open'); });
@@ -1998,6 +2574,7 @@ function quitToMenu() {
   document.getElementById('pauseBtn').style.display = 'none';
   document.getElementById('settingsPanel').classList.remove('open');
   game.started = false; game.over = false;
+  setWorld(false);
   setHeatFog(0);
   CFAudio.visibility(true);                      /* suspend: no music at the menu */
   syncMenuBests();
@@ -2094,6 +2671,10 @@ function frame(nowMs) {
     tapQueued = false;
     drainEvents();
     syncGates();
+    if (worldTrack) { // syncGates can re-show arena pieces; the course world stays hidden until quit
+      for (var wi = 0; wi < arenaObjs.length; wi++) arenaObjs[wi].visible = false;
+      if (terrainMesh) terrainMesh.visible = false;
+    }
     CFAudio.frame(game, input);
   }
   var car = game.car;
@@ -2108,6 +2689,7 @@ function frame(nowMs) {
     for (var i = 0; i < wheels.length; i++) wheels[i].rotation.x -= car.speed * dt / 0.35;
   }
   for (var j = 0; j < coinMeshes.length; j++) {
+    if (j >= game.coins.length) { coinMeshes[j].visible = false; coinPillars[j].visible = false; continue; }
     coinMeshes[j].visible = !game.coins[j].taken;
     coinMeshes[j].rotation.y += dt * 2.2;
     coinMeshes[j].position.x = game.coins[j].x;
@@ -2125,7 +2707,7 @@ function frame(nowMs) {
       pil.material.opacity = CF.clamp((pdist - 30) / 120, 0, 1) * 0.32; // fades out as you close in
     }
   }
-  var sBelow = CF.groundBelowAt(car.x, car.z, car.y - 0.3);
+  var sBelow = game.mode === 'track' ? CF.courseSurfAt(car.x, car.z) : CF.groundBelowAt(car.x, car.z, car.y - 0.3);
   var hAbove = Math.max(0, (car.y - 0.35) - sBelow.h);
   shadowMesh.position.set(car.x, sBelow.h + 0.06, car.z);
   var ss = CF.clamp(1.12 + hAbove * 0.03, 1.12, 4.5);
@@ -2455,6 +3037,8 @@ function onEvent(ev, game) {
       var mult = 1;
       try { if (game && game.scoring && game.scoring.state) mult = game.scoring.state.mult || 1; } catch (e) {}
       coinSound(quantize(t), Math.round((mult - 1) * 2));
+    } else if (ev.type === 'gate') {
+      coinSound(quantize(t), Math.min(Math.max((ev.n || 1) - 1, 0), 7)); // the ladder climbs with the gate count
     } else if (ev.type === 'heatClear') {
       drums = false;
     } else if (ev.type === 'heatStart') {
