@@ -280,7 +280,7 @@
     <h3>HOW TO PLAY</h3>
     <div class="hsec"><h4>DRIVE</h4><p>Drag on the left side of the screen to steer. The car accelerates on its own. Hold the lower right side to brake, and keep holding at a standstill to reverse. The HB button is a handbrake for tight turns.</p></div>
     <div class="hsec"><h4>FLY</h4><p>The moment you leave the ground, that same drag becomes a flight stick. Drag down for a backflip, up for a front flip, sideways to roll, and diagonal for combos. Hold the right side to stabilize: your rotation settles, the car glides, and you can set it down level.</p></div>
-    <div class="hsec"><h4>SCORE</h4><p>Points stay pending while you are in the air and only bank when you land. Clean landings bank in full and grow the combo. A crash loses the whole air. Coins pay 250 each. Take off again within 3 seconds of landing to keep the combo alive.</p></div>
+    <div class="hsec"><h4>SCORE</h4><p>Points stay pending while you are in the air and only bank when you land. Clean landings bank in full and grow the combo. A bad landing loses the whole air, but the car always rights itself and keeps rolling. Nothing stops you. Coins pay 250 each. Take off again within 3 seconds of landing to keep the combo alive.</p></div>
     <p class="hmode">SCORE ATTACK: one three minute run. Beat your best score, combo, and coin count.</p>
     <p class="hmode">HEAT LADDER: five heats with rising targets. The rim opens at Heat 2, the deck at Heat 3, and from Heat 3 coins also buy you time.</p>
     <button class="bigBtn" id="howtoClose">DONE</button>
@@ -344,14 +344,14 @@
 /* ---------------- tuning ---------------- */
 var TUNE_DEFAULTS = {
   gravity: 18,        // m/s^2, George's call (Stage B2): soar higher, float longer
-  pitchRate: 7.4,     // rad/s at full input, full flip in ~0.85s
-  rollRate: 7.4,      // rad/s at full input
-  twistRate: 6.0,     // rad/s for corkscrew yaw
+  pitchRate: 5.7,     // rad/s at full input, full flip in ~1.1s (Scale Pass: slowed for the long airs)
+  rollRate: 5.7,      // rad/s at full input
+  twistRate: 4.6,     // rad/s for corkscrew yaw
   stabilize: 5,       // 0..10 panel scale, mapped internally
   cleanAngle: 12,     // degrees off level vs surface for a CLEAN landing
-  sketchyAngle: 30,   // degrees; beyond this is a CRASH
+  badAngle: 30,       // degrees; beyond this the landing is BAD (no crash state: the car always keeps going)
   grace: 3.0,         // seconds to take off again before the combo lapses
-  maxSpeed: 34        // m/s on the flat
+  maxSpeed: 136       // m/s on the flat (Scale Pass: 4x the old 34)
 };
 function makeTune(overrides) {
   var t = {}, k;
@@ -428,23 +428,24 @@ function yawQuat(yaw) {
 }
 
 /* ---------------- arena: analytic surfaces ----------------
-   Plan view: x east, z south, north is -z. Room is 180x180, walls at |x|,|z| = 90
-   (Stage B2: the room grew from 120; layout spread with it, heights unchanged).
-   The terrain layer is one continuous heightfield (floor, bowl, Crown, feeders,
-   corner ramps, quarter pipes). Elevated structures (rim, deck, rail) stack on top. */
+   Plan view: x east, z south, north is -z. SCALE PASS: the room is now
+   ~1,200m across (walls at |x|,|z| = 600) and the features are ~4x their
+   old size, spread out with long straights between them. The terrain layer
+   is one continuous heightfield (floor, bowl, Crown, feeders, corner ramps,
+   quarter pipes). Elevated structures (rim, deck, rail) stack on top. */
 var TAN32 = Math.tan(32 * Math.PI / 180), TAN38 = Math.tan(38 * Math.PI / 180);
-var WALL = 88.6;      // car-centre limit: the room wall at 90 minus the car's half width
-var RIM_EDGE = 83;    // inner edge of the rim band (rim road runs 83..90 at h=6)
-var BOWL = { x: -54, z: 54, r: 16, depth: 2.5 };
-var RAIL = { x1: -75, z1: 43.5, x2: -43.5, z2: 75, h: 5, half: 0.7, under: 4.8 };
+var WALL = 598.6;     // car-centre limit: the room wall at 600 minus the car's half width
+var RIM_EDGE = 572;   // inner edge of the rim band (rim road runs 572..600 at h=24)
+var BOWL = { x: -360, z: 360, r: 64, depth: 10 };
+var RAIL = { x1: -444, z1: 318, x2: -318, z2: 444, h: 20, half: 2.8, under: 19.2 };
 
 var FEEDERS = [
-  { x0: -4.5, x1: 4.5,  z0: 30,   z1: 45,   dir: 'N', h: 2.2 },
-  { x0: 36,   x1: 51,   z0: -4.5, z1: 4.5,  dir: 'W', h: 3.0 },
-  { x0: -51,  x1: -36,  z0: -4.5, z1: 4.5,  dir: 'E', h: 3.0 },
-  { x0: -4.5, x1: 4.5,  z0: -45,  z1: -30,  dir: 'S', h: 2.6 },
-  { x0: 45,   x1: 57,   z0: 36,   z1: 48,   dir: 'N', h: 1.8 },
-  { x0: -57,  x1: -45,  z0: -48,  z1: -36,  dir: 'S', h: 1.8 }
+  { x0: -18,  x1: 18,   z0: 300,  z1: 360,  dir: 'N', h: 8.8 },
+  { x0: 240,  x1: 300,  z0: -18,  z1: 18,   dir: 'W', h: 12 },
+  { x0: -300, x1: -240, z0: -18,  z1: 18,   dir: 'E', h: 12 },
+  { x0: -18,  x1: 18,   z0: -360, z1: -300, dir: 'S', h: 10.4 },
+  { x0: 300,  x1: 348,  z0: 240,  z1: 288,  dir: 'N', h: 7.2 },
+  { x0: -348, x1: -300, z0: -288, z1: -240, dir: 'S', h: 7.2 }
 ];
 function surf(h, gx, gz, zone, under) {
   // gx, gz are dh/dx, dh/dz; surface normal is normalize(-gx, 1, -gz)
@@ -464,19 +465,19 @@ function terrainGrad(x, z) {
     var ogx = 0, ogz = 0;
     if (bd > 0.001) { ogx = dprof * bdx / bd; ogz = dprof * bdz / bd; }
     var lat = (bdx + bdz) / Math.SQRT2; // signed distance from the spine line
-    var fall = Math.max(0, 1 - (bd / (BOWL.r - 0.5)) * (bd / (BOWL.r - 0.5)));
-    var spine = 1.3 * Math.exp(-(lat / 1.6) * (lat / 1.6)) * fall;
-    var dSpine = 1.3 * Math.exp(-(lat / 1.6) * (lat / 1.6)) * (-2 * lat / 2.56) * fall / Math.SQRT2;
+    var fall = Math.max(0, 1 - (bd / (BOWL.r - 2)) * (bd / (BOWL.r - 2)));
+    var spine = 5.2 * Math.exp(-(lat / 6.4) * (lat / 6.4)) * fall;
+    var dSpine = 5.2 * Math.exp(-(lat / 6.4) * (lat / 6.4)) * (-2 * lat / 40.96) * fall / Math.SQRT2;
     h = prof + spine; gx = ogx + dSpine; gz = ogz + dSpine; zone = 'bowl';
   }
-  // The Crown: min of four analytic face planes, capped at the 4x4 apex (h=7).
-  // NOTE: exact face angles (S32 N45 E/W38), height and apex are kept exact; the
-  // planes therefore meet the floor at a ~22m footprint rather than 34m.
-  var pS = 7 - (z - 2) * TAN32, pN = 7 - (-z - 2) * 1.0, pE = 7 - (x - 2) * TAN38, pW = 7 - (-x - 2) * TAN38;
-  var hC = Math.min(7, pS, pN, pE, pW);
+  // The Crown: min of four analytic face planes, capped at the 16x16 apex (h=28).
+  // Face angles (S32 N45 E/W38), height and apex are exact at the new scale;
+  // the planes meet the floor at a ~88m footprint.
+  var pS = 28 - (z - 8) * TAN32, pN = 28 - (-z - 8) * 1.0, pE = 28 - (x - 8) * TAN38, pW = 28 - (-x - 8) * TAN38;
+  var hC = Math.min(28, pS, pN, pE, pW);
   if (hC > h && hC > 0.001) {
     h = hC; zone = 'crown';
-    if (hC >= 7) { gx = 0; gz = 0; zone = 'crown-apex'; }
+    if (hC >= 28) { gx = 0; gz = 0; zone = 'crown-apex'; }
     else if (pS <= pN && pS <= pE && pS <= pW) { gx = 0; gz = -TAN32; }
     else if (pN <= pE && pN <= pW) { gx = 0; gz = 1.0; }
     else if (pE <= pW) { gx = -TAN38; gz = 0; }
@@ -496,20 +497,21 @@ function terrainGrad(x, z) {
     }
   }
   // Corner ramps: NE rises east to the rim corner, SW rises west. Each meets
-  // the rim band exactly at its inner edge (x = +/-83) at full height.
+  // the rim band exactly at its inner edge (x = +/-572) at full height.
   // Gated with the rim (Heat Ladder H1): the rises simply are not there.
-  if (!GATES.rim && z >= -80 && z <= -69 && x >= 45 && x <= 83) {
-    var hr1 = (x - 45) / 38 * 6;
-    if (hr1 > h) { h = hr1; gx = 6 / 38; gz = 0; zone = 'ramp'; }
+  if (!GATES.rim && z >= -540 && z <= -460 && x >= 400 && x <= 572) {
+    var hr1 = (x - 400) / 172 * 24;
+    if (hr1 > h) { h = hr1; gx = 24 / 172; gz = 0; zone = 'ramp'; }
   }
-  if (!GATES.rim && z >= 69 && z <= 80 && x >= -83 && x <= -45) {
-    var hr2 = (-45 - x) / 38 * 6;
-    if (hr2 > h) { h = hr2; gx = -6 / 38; gz = 0; zone = 'ramp'; }
+  if (!GATES.rim && z >= 460 && z <= 540 && x >= -572 && x <= -400) {
+    var hr2 = (-400 - x) / 172 * 24;
+    if (hr2 > h) { h = hr2; gx = -24 / 172; gz = 0; zone = 'ramp'; }
   }
-  // Quarter pipes on the east and west inner walls, feeding the rim (also rim-gated)
-  if (!GATES.rim && Math.abs(z) <= 57) {
-    if (x >= 77 && x <= 83) { var u1 = (x - 77) / 6, hq1 = 6 * u1 * u1; if (hq1 > h) { h = hq1; gx = 2 * u1; gz = 0; zone = 'qp'; } }
-    if (x <= -77 && x >= -83) { var u2 = (-x - 77) / 6, hq2 = 6 * u2 * u2; if (hq2 > h) { h = hq2; gx = -2 * u2; gz = 0; zone = 'qp'; } }
+  // Quarter pipes on the east and west inner walls, feeding the rim (also rim-gated).
+  // 24m tall over a 24m run: the max gradient is still 2.0, under the face threshold.
+  if (!GATES.rim && Math.abs(z) <= 380) {
+    if (x >= 548 && x <= 572) { var u1 = (x - 548) / 24, hq1 = 24 * u1 * u1; if (hq1 > h) { h = hq1; gx = 2 * u1; gz = 0; zone = 'qp'; } }
+    if (x <= -548 && x >= -572) { var u2 = (-x - 548) / 24, hq2 = 24 * u2 * u2; if (hq2 > h) { h = hq2; gx = -2 * u2; gz = 0; zone = 'qp'; } }
   }
   return { h: h, gx: gx, gz: gz, zone: zone };
 }
@@ -521,11 +523,11 @@ function terrainAt(x, z) {
 function surfacesAt(x, z) {
   var list = [terrainAt(x, z)];
   var ax = Math.abs(x), az = Math.abs(z);
-  if (!GATES.rim && Math.max(ax, az) >= RIM_EDGE && ax <= 90 && az <= 90) { var rm = flatSurf(6, 'rim', 0); rm.stacked = true; list.push(rm); }
-  if (z >= -90 && z <= -83) {
-    if (!GATES.deck && x >= 71 && x <= 81) { var dr1 = surf(6 + (81 - x) * 0.4, -0.4, 0, 'deckramp', 5.9); dr1.stacked = true; list.push(dr1); }
-    else if (!GATES.deck && x <= -71 && x >= -81) { var dr2 = surf(6 + (x + 81) * 0.4, 0.4, 0, 'deckramp', 5.9); dr2.stacked = true; list.push(dr2); }
-    if ((x >= 4.5 && x <= 71) || (x >= -71 && x <= -4.5)) { var dk = flatSurf(10, 'deck', 9); dk.stacked = true; list.push(dk); }
+  if (!GATES.rim && Math.max(ax, az) >= RIM_EDGE && ax <= 600 && az <= 600) { var rm = flatSurf(24, 'rim', 0); rm.stacked = true; list.push(rm); }
+  if (z >= -600 && z <= -572) {
+    if (!GATES.deck && x >= 532 && x <= 572) { var dr1 = surf(24 + (572 - x) * 0.4, -0.4, 0, 'deckramp', 23.9); dr1.stacked = true; list.push(dr1); }
+    else if (!GATES.deck && x <= -532 && x >= -572) { var dr2 = surf(24 + (x + 572) * 0.4, 0.4, 0, 'deckramp', 23.9); dr2.stacked = true; list.push(dr2); }
+    if ((x >= 18 && x <= 532) || (x >= -532 && x <= -18)) { var dk = flatSurf(40, 'deck', 36); dk.stacked = true; list.push(dk); }
   }
   // The Rail: beam across the bowl corner
   var dx = RAIL.x2 - RAIL.x1, dz = RAIL.z2 - RAIL.z1;
@@ -560,40 +562,40 @@ function launchFromSurface(x, z, speed, heading) {
    mid-edges), Structure 7 (four Crown face lips, two deck ends, the Vault
    under the north deck overhang), Flight 5 (Crown apex, Toll Gap, three Rail). */
 var COINS = [
-  { x: 0,     y: 0.9,  z: 55,    tier: 'ground'    },
-  { x: -38,   y: 0.9,  z: 54,    tier: 'ground'    },
-  { x: 0,     y: 3.0,  z: 31,    tier: 'ground'    },
-  { x: 36.5,  y: 3.9,  z: 0,     tier: 'ground'    },
-  { x: -36.5, y: 3.9,  z: 0,     tier: 'ground'    },
-  { x: 0,     y: 3.5,  z: -30.5, tier: 'ground'    },
-  { x: 86.5,  y: 6.9,  z: -86.5, tier: 'rim'       },
-  { x: -86.5, y: 6.9,  z: 86.5,  tier: 'rim'       },
-  { x: 86.5,  y: 6.9,  z: 0,     tier: 'rim'       },
-  { x: -86.5, y: 6.9,  z: -86.5, tier: 'rim'       },
-  { x: 86.5,  y: 6.9,  z: 86.5,  tier: 'rim'       },
-  { x: -86.5, y: 6.9,  z: 0,     tier: 'rim'       },
-  { x: 0,     y: 7.9,  z: 2,     tier: 'structure' },
-  { x: 0,     y: 7.9,  z: -2,    tier: 'structure' },
-  { x: 2,     y: 7.9,  z: 0,     tier: 'structure' },
-  { x: -2,    y: 7.9,  z: 0,     tier: 'structure' },
-  { x: 70,    y: 10.9, z: -86.5, tier: 'structure' },
-  { x: -70,   y: 10.9, z: -86.5, tier: 'structure' },
-  { x: -36,   y: 6.9,  z: -86.5, tier: 'structure' },
-  { x: 0,     y: 8.3,  z: 0,     tier: 'flight'    },
-  { x: 0,     y: 10.9, z: -86.5, tier: 'flight'    },
-  { x: -59.3, y: 5.9,  z: 59.3,  tier: 'flight'    },
-  { x: -67.1, y: 5.9,  z: 51.4,  tier: 'flight'    },
-  { x: -51.4, y: 5.9,  z: 67.1,  tier: 'flight'    }
+  { x: 0,     y: 3.6,  z: 430,   tier: 'ground'    },
+  { x: -315,  y: 3.6,  z: 315,   tier: 'ground'    },
+  { x: 0,     y: 12.4, z: 302,   tier: 'ground'    },
+  { x: 242,   y: 15.6, z: 0,     tier: 'ground'    },
+  { x: -242,  y: 15.6, z: 0,     tier: 'ground'    },
+  { x: 0,     y: 14.0, z: -302,  tier: 'ground'    },
+  { x: 586,   y: 27.6, z: -586,  tier: 'rim'       },
+  { x: -586,  y: 27.6, z: 586,   tier: 'rim'       },
+  { x: 586,   y: 27.6, z: 0,     tier: 'rim'       },
+  { x: -586,  y: 27.6, z: -586,  tier: 'rim'       },
+  { x: 586,   y: 27.6, z: 586,   tier: 'rim'       },
+  { x: -586,  y: 27.6, z: 0,     tier: 'rim'       },
+  { x: 0,     y: 31.6, z: 8,     tier: 'structure' },
+  { x: 0,     y: 31.6, z: -8,    tier: 'structure' },
+  { x: 8,     y: 31.6, z: 0,     tier: 'structure' },
+  { x: -8,    y: 31.6, z: 0,     tier: 'structure' },
+  { x: 500,   y: 43.6, z: -586,  tier: 'structure' },
+  { x: -500,  y: 43.6, z: -586,  tier: 'structure' },
+  { x: -240,  y: 27.6, z: -586,  tier: 'structure' },
+  { x: 0,     y: 32.5, z: 0,     tier: 'flight'    },
+  { x: 0,     y: 43.6, z: -586,  tier: 'flight'    },
+  { x: -412.5, y: 23.6, z: 349.5, tier: 'flight'   },
+  { x: -381,  y: 23.6, z: 381,   tier: 'flight'    },
+  { x: -349.5, y: 23.6, z: 412.5, tier: 'flight'   }
 ];
 /* Shuffle anchors: the 24 tier anchors plus 6 extra plausible spots in the
    same tiers. A shuffle run deals 24 of these 30, seeded per run. */
 var ANCHORS = COINS.concat([
-  { x: 51,    y: 2.7,  z: 36.5,  tier: 'ground'    },
-  { x: -51,   y: 2.7,  z: -36.5, tier: 'ground'    },
-  { x: 0,     y: 4.2,  z: 8,     tier: 'flight'    },
-  { x: 80,    y: 2.4,  z: 0,     tier: 'ground'    },
-  { x: -54,   y: -0.3, z: 54,    tier: 'ground'    },
-  { x: -36,   y: 10.9, z: -86.5, tier: 'structure' }
+  { x: 302,   y: 10.8, z: 264,   tier: 'ground'    },
+  { x: -302,  y: 10.8, z: -264,  tier: 'ground'    },
+  { x: 0,     y: 33.0, z: 40,    tier: 'flight'    },
+  { x: 520,   y: 3.6,  z: 0,     tier: 'ground'    },
+  { x: -360,  y: -1.2, z: 360,   tier: 'ground'    },
+  { x: -240,  y: 43.6, z: -586,  tier: 'structure' }
 ]);
 function mulberry32(a) {
   return function () {
@@ -644,6 +646,11 @@ function computeTricks(rot, counts) {
   for (i = 0; i < AXES.length; i++) {
     var type = AXES[i][0], deg = Math.abs(rot[AXES[i][1]] || 0), base = TRICK_BASE[type];
     var full = Math.floor(deg / 360), rem = deg - full * 360, quarters = Math.floor(rem / 90);
+    /* Scale Pass guardrail (Rosa): at 136 m/s the airs run several seconds,
+       so rotations counted per trick type per air are capped at 5; past the
+       cap, partial quarters stop counting too. Keeps a max Crown air's stunt
+       value in a sane band against the 65,000 Heat 5 target. */
+    if (full >= 5) { full = 5; quarters = 0; }
     var val = 0;
     if (full >= 1) val += base * (1 + 0.8 * (full - 1));       // +80% per extra rotation
     if (quarters >= 2) val += base * 0.25 * quarters;          // partials: half rotation minimum
@@ -661,12 +668,12 @@ function createScoring(tune) {
   function fresh() {
     return { score: 0, comboActive: false, mult: 1, stuntCount: 0,
       trickCounts: { flip: 0, roll: 0, twist: 0 }, lastTouchdown: -1e9,
-      sketchyStreak: 0, biggestBank: 0, maxMult: 1, airActive: false };
+      roughStreak: 0, biggestBank: 0, maxMult: 1, airActive: false };
   }
   var st = fresh();
   function endCombo() {
     st.comboActive = false; st.mult = 1; st.stuntCount = 0;
-    st.trickCounts = { flip: 0, roll: 0, twist: 0 }; st.sketchyStreak = 0;
+    st.trickCounts = { flip: 0, roll: 0, twist: 0 }; st.roughStreak = 0;
   }
   var S = { state: st };
   S.reset = function () { var f = fresh(); for (var k in f) st[k] = f[k]; };
@@ -686,7 +693,7 @@ function createScoring(tune) {
     var calc = computeTricks(rot, st.trickCounts);
     var pending = calc.pending, banked = 0, i;
     st.airActive = false;
-    if (band === 'crash') {
+    if (band === 'bad') {
       endCombo();
     } else {
       var frac = band === 'clean' ? 1 : 0.5;
@@ -697,10 +704,10 @@ function createScoring(tune) {
         for (i = 0; i < calc.tricks.length; i++) st.trickCounts[calc.tricks[i].type]++;
         st.comboActive = true;
         if (band === 'clean') {
-          st.mult = Math.min(5, st.mult + 0.5); st.stuntCount++; st.sketchyStreak = 0;
+          st.mult = Math.min(5, st.mult + 0.5); st.stuntCount++; st.roughStreak = 0;
         } else {
-          st.sketchyStreak++;
-          if (st.sketchyStreak >= 2) endCombo();
+          st.roughStreak++;
+          if (st.roughStreak >= 2) endCombo();
         }
         if (st.mult > st.maxMult) st.maxMult = st.mult;
       }
@@ -740,10 +747,10 @@ function tangentVelocity(s, heading, speed) {
 function createGame(tune) {
   var scoring = createScoring(tune);
   var clock = createRunClock(180);
-  var car = { x: 0, y: 0, z: 70, heading: Math.PI, speed: 0, vx: 0, vy: 0, vz: 0,
+  var car = { x: 0, y: 0, z: 470, heading: Math.PI, speed: 0, vx: 0, vy: 0, vz: 0,
               q: [0, 0, 0, 1], wx: 0, wy: 0, wz: 0, mode: 'ground', airTime: 0,
               wings: false, corkscrew: false, accPitch: 0, accRoll: 0, accYaw: 0,
-              crashT: 0, surf: null };
+              rightT: 0, surf: null };
   var coins = COINS.map(function (c) { return { x: c.x, y: c.y, z: c.z, tier: c.tier, taken: false }; });
   var g = { tune: tune, car: car, scoring: scoring, clock: clock, coins: coins,
             now: 0, coinsCollected: 0, events: [], started: false, over: false,
@@ -751,13 +758,13 @@ function createGame(tune) {
             shuffleOn: false, seed: 1 };
 
   function placeCar() {
-    car.x = 0; car.z = 70; car.heading = Math.PI; car.speed = 0;
+    car.x = 0; car.z = 470; car.heading = Math.PI; car.speed = 0;
     car.vx = 0; car.vy = 0; car.vz = 0; car.wx = 0; car.wy = 0; car.wz = 0;
-    car.surf = groundBelowAt(0, 70, 100);
+    car.surf = groundBelowAt(0, 470, 100);
     car.y = car.surf.h + WHEEL;
     car.q = groundQuat(car.heading, car.surf.nx, car.surf.ny, car.surf.nz);
     car.mode = 'ground'; car.airTime = 0; car.wings = false; car.corkscrew = false;
-    car.accPitch = 0; car.accRoll = 0; car.accYaw = 0; car.crashT = 0;
+    car.accPitch = 0; car.accRoll = 0; car.accYaw = 0; car.rightT = 0;
   }
   placeCar();
 
@@ -826,25 +833,30 @@ function createGame(tune) {
   }
 
   function stepGround(dt, input) {
-    var auth = clamp(car.speed / 10, -1, 1);
-    car.heading -= input.steer * 1.85 * (input.handbrake ? 1.6 : 1) * dt * auth;
+    if (car.rightT > 0) car.rightT = Math.max(0, car.rightT - dt);
+    var auth = clamp(car.speed / 40, -1, 1);
+    /* Speed-sensitive steering (Pete, Scale Pass): full authority up to
+       ~34 m/s, softening to ~55% at top speed so 136 m/s stays controllable
+       instead of twitchy. Turn radius grows from ~74m to ~130m. */
+    var steerSoft = 1 - 0.45 * clamp((Math.abs(car.speed) - 34) / 102, 0, 1);
+    car.heading -= input.steer * 1.85 * steerSoft * (input.handbrake ? 1.6 : 1) * dt * auth;
     if (input.brake) {
-      if (car.speed > 0.4) car.speed -= 26 * dt;
-      else { car.speed -= 10 * dt; if (car.speed < -9) car.speed = -9; }
+      if (car.speed > 1.5) car.speed -= 90 * dt;
+      else { car.speed -= 40 * dt; if (car.speed < -36) car.speed = -36; }
     } else if (input.handbrake) {
       car.speed -= car.speed * 2.2 * dt;
-      car.speed = car.speed > 0 ? Math.max(0, car.speed - 8 * dt) : Math.min(0, car.speed + 8 * dt);
+      car.speed = car.speed > 0 ? Math.max(0, car.speed - 32 * dt) : Math.min(0, car.speed + 32 * dt);
     } else {
-      car.speed += 15 * (1 - car.speed / 40) * dt;
-      if (car.speed > tune.maxSpeed) car.speed = Math.max(tune.maxSpeed, car.speed - 6 * dt);
+      car.speed += 40 * (1 - car.speed / 150) * dt;
+      if (car.speed > tune.maxSpeed) car.speed = Math.max(tune.maxSpeed, car.speed - 24 * dt);
     }
     var n = car.surf;
     var H = v3(Math.sin(car.heading), 0, Math.cos(car.heading));
     var d = H.x * n.nx + H.z * n.nz;
     var fy = -n.ny * d; // y component of the surface tangent along heading
     car.speed -= tune.gravity * fy * dt * 0.55; // slopes push back, descents pull
-    if (car.speed > 44) car.speed = 44;
-    if (car.speed < -12) car.speed = -12;
+    if (car.speed > 176) car.speed = 176;
+    if (car.speed < -48) car.speed = -48;
     /* Swept movement: the step is split so the car never travels more than
        ~0.4m without a contact test, so no step size can tunnel it through a
        ramp, a wedge side, or a wall. Contact SLIDES (see stepGroundMove):
@@ -866,6 +878,13 @@ function createGame(tune) {
      Ground contact is a constraint applied after the move, never glue: if
      the surface has fallen away below the ballistic position, the car is
      airborne carrying that velocity, upward component included. */
+  /* Set the car's orientation from a ground surface. While rightT runs
+     (just after a BAD landing) the orientation slerps to level instead of
+     snapping: the car visibly rights itself while it keeps moving. */
+  function groundSetQ(s2, sdt) {
+    var tq = groundQuat(car.heading, s2.nx, s2.ny, s2.nz);
+    car.q = car.rightT > 0 ? qSlerp(car.q, tq, 1 - Math.exp(-sdt * 9)) : tq;
+  }
   function stepGroundMove(sdt) {
     var tv = tangentVelocity(car.surf, car.heading, car.speed);
     tv.y -= tune.gravity * sdt;
@@ -908,7 +927,7 @@ function createGame(tune) {
        ground too, since the gated rim surface no longer deflects it. Clamp
        the crossing coordinate to the band edge: the car slides along the
        gate line and keeps its speed. */
-    if (GATES.rim && prevBottom < 5.5 && inRimBand(mx, mz) && !inRimBand(prevX, prevZ)) {
+    if (GATES.rim && prevBottom < 23.5 && inRimBand(mx, mz) && !inRimBand(prevX, prevZ)) {
       if (Math.abs(mx) >= RIM_EDGE && Math.abs(prevX) < RIM_EDGE) mx = mx > 0 ? RIM_EDGE - 0.01 : -(RIM_EDGE - 0.01);
       if (Math.abs(mz) >= RIM_EDGE && Math.abs(prevZ) < RIM_EDGE) mz = mz > 0 ? RIM_EDGE - 0.01 : -(RIM_EDGE - 0.01);
       if (inRimBand(mx, mz)) { mx = prevX; mz = prevZ; }
@@ -922,12 +941,12 @@ function createGame(tune) {
     var newBottom = my - WHEEL;
     if (cand.h >= newBottom - 0.001) {
       car.y = cand.h + WHEEL; car.surf = cand;
-      car.q = groundQuat(car.heading, cand.nx, cand.ny, cand.nz);
+      groundSetQ(cand, sdt);
     } else if (newBottom - cand.h <= 0.35 && Math.abs(car.speed) <= 8) {
       /* Snap-down following: small drops at low speed only, never at launch
          speed over a lip or a crest. */
       car.y = cand.h + WHEEL; car.surf = cand;
-      car.q = groundQuat(car.heading, cand.nx, cand.ny, cand.nz);
+      groundSetQ(cand, sdt);
     } else {
       car.y = my;
       car.vx = tv.x; car.vy = tv.y; car.vz = tv.z;
@@ -949,7 +968,7 @@ function createGame(tune) {
   function sideCollideAir(px, pz) {
     var bottom = car.y - WHEEL;
     // The rim's inner side face, met below rim height.
-    if (bottom < 6.05 && inRimBand(car.x, car.z) && !inRimBand(px, pz)) {
+    if (bottom < 24.2 && inRimBand(car.x, car.z) && !inRimBand(px, pz)) {
       if (Math.abs(car.x) >= RIM_EDGE && Math.abs(px) < RIM_EDGE) {
         car.x = car.x > 0 ? RIM_EDGE - 0.01 : -(RIM_EDGE - 0.01);
         if (car.vx * car.x > 0) car.vx = 0;
@@ -961,12 +980,12 @@ function createGame(tune) {
       if (inRimBand(car.x, car.z)) { car.x = px; car.z = pz; }
     }
     // The deck slabs' side faces: the south face, and the Toll Gap / end faces.
-    var slabX = function (x) { return (x >= 4.5 && x <= 71) || (x <= -4.5 && x >= -71); };
-    var inSlab = function (x, z) { return z <= -RIM_EDGE && z >= -90 && slabX(x); };
-    if (car.y > 8.4 && car.y < 10.37 && inSlab(car.x, car.z) !== inSlab(px, pz)) {
+    var slabX = function (x) { return (x >= 18 && x <= 532) || (x <= -18 && x >= -532); };
+    var inSlab = function (x, z) { return z <= -RIM_EDGE && z >= -600 && slabX(x); };
+    if (car.y > 35.4 && car.y < 40.37 && inSlab(car.x, car.z) !== inSlab(px, pz)) {
       if (pz > -RIM_EDGE && car.z <= -RIM_EDGE) { car.z = -(RIM_EDGE - 0.01); if (car.vz < 0) car.vz = 0; }
       else {
-        var edges = [4.5, -4.5, 71, -71], ei, b = null;
+        var edges = [18, -18, 532, -532], ei, b = null;
         for (ei = 0; ei < edges.length; ei++) {
           if ((px - edges[ei]) * (car.x - edges[ei]) < 0) { b = edges[ei]; break; }
         }
@@ -990,37 +1009,50 @@ function createGame(tune) {
     }
   }
 
+  /* Landing bands (Scale Pass, George's rule): there is NO crash state.
+     CLEAN banks in full and grows the combo; ROUGH banks half; BAD (roof,
+     side, or beyond the bad angle) loses the pending points and ends the
+     combo, and that is the entire penalty: the car rights itself while
+     sliding on the surface, keeps ~75% of its speed, and the player just
+     keeps driving. IMPACT_ROUGH scaled 17 -> 68 with the world: fall
+     speeds doubled at 4x heights, so the old clean/rough relationship
+     (a full-speed flat Crown landing sits just over the line) is kept. */
+  var IMPACT_ROUGH = 68;
   function land(s) {
     var up = qRotate(car.q, v3(0, 1, 0));
     var cosA = clamp(up.x * s.nx + up.y * s.ny + up.z * s.nz, -1, 1);
     var ang = Math.acos(cosA) * 180 / Math.PI;
     var impact = -(car.vx * s.nx + car.vy * s.ny + car.vz * s.nz), band; // approach speed into the surface
-    if (ang > tune.sketchyAngle) band = 'crash';
-    else if (ang > tune.cleanAngle || impact > 17) band = 'sketchy';
+    if (ang > tune.badAngle) band = 'bad';
+    else if (ang > tune.cleanAngle || impact > IMPACT_ROUGH) band = 'rough';
     else band = 'clean';
     var res = scoring.endAir({ pitch: car.accPitch * 180 / Math.PI, roll: car.accRoll * 180 / Math.PI,
                                yaw: car.accYaw * 180 / Math.PI, airtime: car.airTime }, band, g.now);
     g.events.push({ type: 'landed', band: band, banked: res.banked, pending: res.pending,
                     tricks: res.tricks, mult: res.multAfter });
-    if (band === 'crash' && g.mode === 'ladder' && !g.over) {
-      clock.addTime(-3); // a crash inside a heat costs 3 seconds (Variant C)
+    if (band === 'bad' && g.mode === 'ladder' && !g.over) {
+      clock.addTime(-3); // a BAD landing inside a heat costs 3 seconds (Variant C)
       g.events.push({ type: 'timePenalty', seconds: 3 });
     }
     clock.onLanded();
     car.wings = false;
-    if (band === 'crash') {
-      car.mode = 'crash'; car.crashT = 1.4;
-      car.vx *= 0.4; car.vz *= 0.4; car.vy = 0;
-      car.y = s.h + WHEEL; car.surf = s;
-      car.wx *= 0.5; car.wy *= 0.5; car.wz *= 0.5;
+    car.y = s.h + WHEEL; car.surf = s;
+    car.wx = 0; car.wy = 0; car.wz = 0; car.vy = 0;
+    if (band === 'bad') {
+      /* No stop, no tumble, no reset: point the car along its travel,
+         keep 75% of its plan speed (never under the ~70% floor), and let
+         groundSetQ slerp it back onto its wheels while it moves. */
+      var planSpd = Math.sqrt(car.vx * car.vx + car.vz * car.vz);
+      if (planSpd > 2) car.heading = Math.atan2(car.vx, car.vz);
+      car.speed = clamp(0.75 * planSpd, 0, 168);
+      car.mode = 'ground'; car.rightT = 0.45;
     } else {
       var f = qRotate(car.q, v3(0, 0, -1));
       car.heading = Math.atan2(f.x, f.z);
       var fh = Math.sqrt(f.x * f.x + f.z * f.z) || 1;
-      car.speed = clamp(car.vx * (f.x / fh) + car.vz * (f.z / fh), -12, 42);
-      car.mode = 'ground'; car.y = s.h + WHEEL; car.surf = s;
+      car.speed = clamp(car.vx * (f.x / fh) + car.vz * (f.z / fh), -48, 168);
+      car.mode = 'ground';
       car.q = groundQuat(car.heading, s.nx, s.ny, s.nz);
-      car.wx = 0; car.wy = 0; car.wz = 0; car.vy = 0;
     }
   }
 
@@ -1096,28 +1128,7 @@ function createGame(tune) {
       }
       if (!grazed) sideCollideAir(spx, spz);
     }
-    if (car.y < -8) land(groundBelowAt(car.x, car.z, 1e6)); // safety net, should not happen
-  }
-
-  function stepCrash(dt, input) {
-    car.crashT -= dt;
-    var damp = Math.exp(-2.2 * dt);
-    car.wx *= damp; car.wy *= damp; car.wz *= damp;
-    var dq = qMul(car.q, [car.wx, car.wy, car.wz, 0]);
-    car.q = qNorm([car.q[0] + 0.5 * dt * dq[0], car.q[1] + 0.5 * dt * dq[1],
-                   car.q[2] + 0.5 * dt * dq[2], car.q[3] + 0.5 * dt * dq[3]]);
-    var drag = Math.max(0, 1 - 2.5 * dt);
-    car.vx *= drag; car.vz *= drag;
-    car.x += car.vx * dt; car.z += car.vz * dt;
-    if (car.x > WALL) car.x = WALL; if (car.x < -WALL) car.x = -WALL;
-    if (car.z > WALL) car.z = WALL; if (car.z < -WALL) car.z = -WALL;
-    var s = groundBelowAt(car.x, car.z, car.y + 2);
-    car.y = s.h + WHEEL; car.surf = s;
-    if (car.crashT <= 0 || input.tap) {
-      car.q = groundQuat(car.heading, s.nx, s.ny, s.nz);
-      car.speed = 0; car.wx = 0; car.wy = 0; car.wz = 0; car.mode = 'ground';
-      g.events.push({ type: 'reset' });
-    }
+    if (car.y < -40) land(groundBelowAt(car.x, car.z, 1e6)); // safety net (below the bowl's -10 floor), should not happen
   }
 
   function collectCoins() {
@@ -1125,7 +1136,7 @@ function createGame(tune) {
       var c = coins[i];
       if (c.taken) continue;
       var dx = car.x - c.x, dy = (car.y + 0.3) - c.y, dz = car.z - c.z;
-      if (dx * dx + dy * dy + dz * dz < 2.4 * 2.4) {
+      if (dx * dx + dy * dy + dz * dz < 9.6 * 9.6) {
         c.taken = true; g.coinsCollected++;
         scoring.addBonus(250);
         var cev = { type: 'coin', count: g.coinsCollected };
@@ -1156,7 +1167,6 @@ function createGame(tune) {
     var inp = g.over ? ZERO_INPUT : input;
     if (car.mode === 'ground') stepGround(dt, inp);
     else if (car.mode === 'air') stepAir(dt, inp);
-    else stepCrash(dt, input);
     collectCoins();
     if (g.over) return;
     if (g.mode === 'ladder') {
@@ -1218,9 +1228,9 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 container.appendChild(renderer.domElement);
 var scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0d5c46);
-scene.fog = new THREE.Fog(0x2e8f74, 90, 320);
-var camera = new THREE.PerspectiveCamera(62, 1, 0.1, 800);
-camera.position.set(0, 20, 84);
+scene.fog = new THREE.Fog(0x2e8f74, 350, 2100);
+var camera = new THREE.PerspectiveCamera(62, 1, 0.1, 4200);
+camera.position.set(0, 90, 520);
 scene.add(new THREE.HemisphereLight(0xcfffe8, 0x1d5c40, 1.3));
 var sun = new THREE.DirectionalLight(0xfff2d8, 0.95);
 sun.position.set(40, 90, 25);
@@ -1253,7 +1263,7 @@ scene.add(sun);
     ctx.fillRect(sx, sy, r, r);
   }
   var tex = new THREE.CanvasTexture(cv);
-  var dome = new THREE.Mesh(new THREE.SphereGeometry(360, 24, 14),
+  var dome = new THREE.Mesh(new THREE.SphereGeometry(3000, 24, 14),
     new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false }));
   scene.add(dome);
 })();
@@ -1261,7 +1271,7 @@ scene.add(sun);
 function lam(color) { return new THREE.MeshLambertMaterial({ color: color }); }
 var JADE = new THREE.MeshBasicMaterial({ color: 0x19f0a0 });
 function strip(w, d, x, y, z, mat) {
-  var m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.14, d), mat || JADE);
+  var m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.5, d), mat || JADE);
   m.position.set(x, y, z); scene.add(m); return m;
 }
 
@@ -1271,7 +1281,7 @@ var ZONE_COLORS = { floor: 0x14705f, bowl: 0x1b9e8f, crown: 0x17a05e, 'crown-ape
 var terrainMesh = null;
 function buildTerrain() {
   if (terrainMesh) { scene.remove(terrainMesh); terrainMesh.geometry.dispose(); terrainMesh.material.dispose(); }
-  var geo = new THREE.PlaneGeometry(180, 180, 180, 180);
+  var geo = new THREE.PlaneGeometry(1200, 1200, 240, 240);
   geo.rotateX(-Math.PI / 2);
   var pos = geo.attributes.position, colors = new Float32Array(pos.count * 3), col = new THREE.Color();
   for (var i = 0; i < pos.count; i++) {
@@ -1297,77 +1307,93 @@ var deckRampMeshes = [];
     var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
     m.position.set(x, y, z); scene.add(m); return m;
   }
-  box(180, 6, 7, 0, 3, -86.5, rimMat); box(180, 6, 7, 0, 3, 86.5, rimMat);
-  box(7, 6, 166, 86.5, 3, 0, rimMat); box(7, 6, 166, -86.5, 3, 0, rimMat);
-  strip(180, 0.28, 0, 6.07, -83.15); strip(180, 0.28, 0, 6.07, 83.15);
-  strip(0.28, 166, 83.15, 6.07, 0); strip(0.28, 166, -83.15, 6.07, 0);
-  // Crown apex outline
-  strip(4.4, 0.24, 0, 7.06, 2); strip(4.4, 0.24, 0, 7.06, -2);
-  strip(0.24, 4.4, 2, 7.06, 0); strip(0.24, 4.4, -2, 7.06, 0);
+  // Rim road boxes (the perimeter band, 572..600 at h=24)
+  box(1200, 24, 28, 0, 12, -586, rimMat); box(1200, 24, 28, 0, 12, 586, rimMat);
+  box(28, 24, 1144, 586, 12, 0, rimMat); box(28, 24, 1144, -586, 12, 0, rimMat);
+  strip(1200, 1.1, 0, 24.25, -572.3); strip(1200, 1.1, 0, 24.25, 572.3);
+  strip(1.1, 1144, 572.3, 24.25, 0); strip(1.1, 1144, -572.3, 24.25, 0);
+  // Crown apex outline (16x16 at h=28)
+  strip(17.6, 1, 0, 28.25, 8); strip(17.6, 1, 0, 28.25, -8);
+  strip(1, 17.6, 8, 28.25, 0); strip(1, 17.6, -8, 28.25, 0);
   // Upper deck slabs, supports, access ramps, front edge trim
-  box(66.5, 1, 7, 37.75, 9.5, -86.5, deckMat); box(66.5, 1, 7, -37.75, 9.5, -86.5, deckMat);
-  box(0.6, 3, 0.6, 66, 7.5, -89.3, deckMat); box(0.6, 3, 0.6, 10, 7.5, -89.3, deckMat);
-  box(0.6, 3, 0.6, -66, 7.5, -89.3, deckMat); box(0.6, 3, 0.6, -10, 7.5, -89.3, deckMat);
-  strip(66.5, 0.28, 37.75, 10.06, -83.15); strip(66.5, 0.28, -37.75, 10.06, -83.15);
+  box(514, 4, 28, 275, 38, -586, deckMat); box(514, 4, 28, -275, 38, -586, deckMat);
+  box(2.4, 12, 2.4, 500, 30, -594, deckMat); box(2.4, 12, 2.4, 60, 30, -594, deckMat);
+  box(2.4, 12, 2.4, -500, 30, -594, deckMat); box(2.4, 12, 2.4, -60, 30, -594, deckMat);
+  strip(514, 1.1, 275, 40.25, -572.3); strip(514, 1.1, -275, 40.25, -572.3);
   function deckRamp(sign) {
-    var g2 = new THREE.PlaneGeometry(10, 7, 10, 1);
+    var g2 = new THREE.PlaneGeometry(40, 28, 10, 1);
     g2.rotateX(-Math.PI / 2);
     var p = g2.attributes.position;
     for (var i = 0; i < p.count; i++) {
-      var wx = p.getX(i) + sign * 76;
-      p.setY(i, sign > 0 ? 6 + (81 - wx) * 0.4 : 6 + (wx + 81) * 0.4);
+      var wx = p.getX(i) + sign * 552;
+      p.setY(i, sign > 0 ? 24 + (572 - wx) * 0.4 : 24 + (wx + 572) * 0.4);
     }
     g2.computeVertexNormals();
     var m = new THREE.Mesh(g2, new THREE.MeshLambertMaterial({ color: 0x177a6b, side: THREE.DoubleSide }));
-    m.position.set(sign * 76, 0, -86.5); scene.add(m); deckRampMeshes.push(m);
+    m.position.set(sign * 552, 0, -586); scene.add(m); deckRampMeshes.push(m);
   }
   deckRamp(1); deckRamp(-1);
   // The Rail across the bowl corner
   var R = CF.RAIL, len = Math.sqrt((R.x2 - R.x1) * (R.x2 - R.x1) + (R.z2 - R.z1) * (R.z2 - R.z1));
-  var rail = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.3, len), lam(0x2a9d74));
-  rail.position.set((R.x1 + R.x2) / 2, R.h - 0.15, (R.z1 + R.z2) / 2);
+  var rail = new THREE.Mesh(new THREE.BoxGeometry(5.6, 1.2, len), lam(0x2a9d74));
+  rail.position.set((R.x1 + R.x2) / 2, R.h - 0.6, (R.z1 + R.z2) / 2);
   rail.rotation.y = Math.atan2(R.x2 - R.x1, R.z2 - R.z1);
   scene.add(rail);
-  var railTrim = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.1, len), JADE);
-  railTrim.position.copy(rail.position); railTrim.position.y = R.h + 0.05;
+  var railTrim = new THREE.Mesh(new THREE.BoxGeometry(1, 0.4, len), JADE);
+  railTrim.position.copy(rail.position); railTrim.position.y = R.h + 0.2;
   railTrim.rotation.y = rail.rotation.y; scene.add(railTrim);
-  // Start pad outline
-  strip(5.4, 0.24, 0, 0.07, 67.4); strip(5.4, 0.24, 0, 0.07, 72.6);
-  strip(0.24, 5.4, -2.6, 0.07, 70); strip(0.24, 5.4, 2.6, 0.07, 70);
-  // Wall-top outer coping (the rim boxes are the walls)
-  strip(180, 0.28, 0, 6.07, -89.8); strip(180, 0.28, 0, 6.07, 89.8);
-  strip(0.28, 180, 89.8, 6.07, 0); strip(0.28, 180, -89.8, 6.07, 0);
+  // Start pad outline (south-center, z=470)
+  strip(21.6, 1, 0, 0.25, 459.6); strip(21.6, 1, 0, 0.25, 480.4);
+  strip(1, 21.6, -10.4, 0.25, 470); strip(1, 21.6, 10.4, 0.25, 470);
+  // Wall-top outer coping (on the rim boxes, at the room wall)
+  strip(1200, 1.1, 0, 24.25, -598.5); strip(1200, 1.1, 0, 24.25, 598.5);
+  strip(1.1, 1200, 598.5, 24.25, 0); strip(1.1, 1200, -598.5, 24.25, 0);
   // Toll Gap lips and deck back edges
-  strip(0.28, 7, 4.5, 10.06, -86.5); strip(0.28, 7, -4.5, 10.06, -86.5);
-  strip(66.5, 0.28, 37.75, 10.06, -89.8); strip(66.5, 0.28, -37.75, 10.06, -89.8);
+  strip(1.1, 28, 18, 40.25, -586); strip(1.1, 28, -18, 40.25, -586);
+  strip(514, 1.1, 275, 40.25, -598.5); strip(514, 1.1, -275, 40.25, -598.5);
   // Crown trim: base perimeter where the faces meet the floor
-  strip(21.9, 0.24, 0, 0.09, 13.2); strip(21.9, 0.24, 0, 0.09, -9);
-  strip(0.24, 22.2, 10.96, 0.09, 2.1); strip(0.24, 22.2, -10.96, 0.09, 2.1);
+  strip(87.6, 1, 0, 0.25, 52.8); strip(87.6, 1, 0, 0.25, -36);
+  strip(1, 88.8, 43.8, 0.25, 8.4); strip(1, 88.8, -43.8, 0.25, 8.4);
   // Crown trim: hip edges, apex corner to base corner
   function beam(x1, y1, z1, x2, y2, z2) {
     var dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
     var L = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    var m = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, L), JADE);
+    var m = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, L), JADE);
     m.position.set((x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2);
     m.lookAt(x2, y2, z2); scene.add(m); return m;
   }
-  beam(2, 7.02, 2, 10.96, 0.1, 13.2); beam(-2, 7.02, 2, -10.96, 0.1, 13.2);
-  beam(2, 7.02, -2, 10.96, 0.1, -9); beam(-2, 7.02, -2, -10.96, 0.1, -9);
+  beam(8, 28.1, 8, 43.8, 0.4, 52.8); beam(-8, 28.1, 8, -43.8, 0.4, 52.8);
+  beam(8, 28.1, -8, 43.8, 0.4, -36); beam(-8, 28.1, -8, -43.8, 0.4, -36);
   // Feeder lips: a jade line along each wedge's high edge
   CF.FEEDERS.forEach(function (f) {
     var w = f.x1 - f.x0, d = f.z1 - f.z0, cx = (f.x0 + f.x1) / 2, cz = (f.z0 + f.z1) / 2;
-    if (f.dir === 'N') strip(w + 0.3, 0.26, cx, f.h + 0.06, f.z0);
-    else if (f.dir === 'S') strip(w + 0.3, 0.26, cx, f.h + 0.06, f.z1);
-    else if (f.dir === 'W') strip(0.26, d + 0.3, f.x0, f.h + 0.06, cz);
-    else strip(0.26, d + 0.3, f.x1, f.h + 0.06, cz);
+    if (f.dir === 'N') strip(w + 1.2, 1, cx, f.h + 0.25, f.z0);
+    else if (f.dir === 'S') strip(w + 1.2, 1, cx, f.h + 0.25, f.z1);
+    else if (f.dir === 'W') strip(1, d + 1.2, f.x0, f.h + 0.25, cz);
+    else strip(1, d + 1.2, f.x1, f.h + 0.25, cz);
   });
   // Rail side trims, so the beam reads along its full length
   var rp = { x: Math.cos(rail.rotation.y), z: -Math.sin(rail.rotation.y) };
-  [-0.58, 0.58].forEach(function (off) {
-    var st = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, len), JADE);
-    st.position.set(rail.position.x + rp.x * off, R.h + 0.03, rail.position.z + rp.z * off);
+  [-2.3, 2.3].forEach(function (off) {
+    var st = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.32, len), JADE);
+    st.position.set(rail.position.x + rp.x * off, R.h + 0.1, rail.position.z + rp.z * off);
     st.rotation.y = rail.rotation.y; scene.add(st);
   });
+  /* The energy wall: a tall translucent jade shell on the room line.
+     Physics clamps the car at the same line (it slides, never leaves);
+     this is what the player sees it slide along, in the air and on the
+     ground. Nothing outside it exists: no void, ever. */
+  var wallMat = new THREE.MeshBasicMaterial({ color: 0x19f0a0, transparent: true, opacity: 0.10,
+    side: THREE.DoubleSide, depthWrite: false, fog: false });
+  function ewall(w, x, z, rotY) {
+    var m = new THREE.Mesh(new THREE.PlaneGeometry(w, 80), wallMat);
+    m.position.set(x, 40, z); m.rotation.y = rotY; scene.add(m);
+    var top = new THREE.Mesh(new THREE.BoxGeometry(w, 1.2, 0.6),
+      new THREE.MeshBasicMaterial({ color: 0x19f0a0, transparent: true, opacity: 0.55, fog: false }));
+    top.position.set(x, 80, z); top.rotation.y = rotY; scene.add(top);
+  }
+  ewall(1200, 0, -600, 0); ewall(1200, 0, 600, 0);
+  ewall(1200, -600, 0, Math.PI / 2); ewall(1200, 600, 0, Math.PI / 2);
 })();
 
 /* ---------- heat gates: jade barriers standing at the locked ramps ---------- */
@@ -1395,10 +1421,10 @@ function makeBarrier(w, h, label, sub) {
   return grp;
 }
 (function buildGates() {
-  var ne = makeBarrier(7, 2.4, 'LOCKED', 'OPENS HEAT 2'); ne.position.set(48, 1.3, -74.5); ne.rotation.y = Math.PI / 2; gateMeshes.rim.push(ne);
-  var sw = makeBarrier(7, 2.4, 'LOCKED', 'OPENS HEAT 2'); sw.position.set(-48, 1.3, 74.5); sw.rotation.y = Math.PI / 2; gateMeshes.rim.push(sw);
-  var de = makeBarrier(7, 2.4, 'LOCKED', 'OPENS HEAT 3'); de.position.set(76, 7.3, -86.5); de.rotation.y = Math.PI / 2; gateMeshes.deck.push(de);
-  var dw = makeBarrier(7, 2.4, 'LOCKED', 'OPENS HEAT 3'); dw.position.set(-76, 7.3, -86.5); dw.rotation.y = Math.PI / 2; gateMeshes.deck.push(dw);
+  var ne = makeBarrier(80, 10, 'LOCKED', 'OPENS HEAT 2'); ne.position.set(400, 5, -500); ne.rotation.y = -Math.PI / 2; gateMeshes.rim.push(ne);
+  var sw = makeBarrier(80, 10, 'LOCKED', 'OPENS HEAT 2'); sw.position.set(-400, 5, 500); sw.rotation.y = Math.PI / 2; gateMeshes.rim.push(sw);
+  var de = makeBarrier(28, 10, 'LOCKED', 'OPENS HEAT 3'); de.position.set(552, 29, -586); de.rotation.y = Math.PI / 2; gateMeshes.deck.push(de);
+  var dw = makeBarrier(28, 10, 'LOCKED', 'OPENS HEAT 3'); dw.position.set(-552, 29, -586); dw.rotation.y = Math.PI / 2; gateMeshes.deck.push(dw);
 })();
 var lastGateSig = null;
 function syncGates() {
@@ -1414,10 +1440,10 @@ function syncGates() {
 /* ---------- coins ---------- */
 var coinMeshes = [], coinPillars = [];
 (function buildCoins() {
-  var geo = new THREE.CylinderGeometry(0.9, 0.9, 0.16, 18);
+  var geo = new THREE.CylinderGeometry(3.6, 3.6, 0.64, 24);
   geo.rotateX(Math.PI / 2);
   var mat = new THREE.MeshLambertMaterial({ color: 0xffc44d, emissive: 0x9a6200 });
-  var rimGeo = new THREE.TorusGeometry(0.9, 0.07, 8, 24);
+  var rimGeo = new THREE.TorusGeometry(3.6, 0.28, 10, 32);
   var rimMat = new THREE.MeshBasicMaterial({ color: 0xffc44d });
   // soft vertical gradient for the light pillars (bright at the coin, gone at the top)
   var pcv = document.createElement('canvas'); pcv.width = 1; pcv.height = 64;
@@ -1426,7 +1452,7 @@ var coinMeshes = [], coinPillars = [];
   pg.addColorStop(0, '#ffffff'); pg.addColorStop(1, '#000000');
   pctx.fillStyle = pg; pctx.fillRect(0, 0, 1, 64);
   var pillarTex = new THREE.CanvasTexture(pcv);
-  var pillarGeo = new THREE.CylinderGeometry(0.14, 0.3, 7, 10, 1, true);
+  var pillarGeo = new THREE.CylinderGeometry(0.56, 1.2, 28, 10, 1, true);
   for (var i = 0; i < CF.COINS.length; i++) {
     var m = new THREE.Mesh(geo, mat);
     m.position.set(CF.COINS[i].x, CF.COINS[i].y, CF.COINS[i].z);
@@ -1435,7 +1461,7 @@ var coinMeshes = [], coinPillars = [];
     var pillar = new THREE.Mesh(pillarGeo, new THREE.MeshBasicMaterial({
       color: 0xffc44d, alphaMap: pillarTex, transparent: true, opacity: 0,
       blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false, fog: false }));
-    pillar.position.set(CF.COINS[i].x, CF.COINS[i].y + 3.5, CF.COINS[i].z);
+    pillar.position.set(CF.COINS[i].x, CF.COINS[i].y + 14, CF.COINS[i].z);
     scene.add(pillar); coinPillars.push(pillar);
   }
 })();
@@ -1630,7 +1656,6 @@ var keys = {};
 var touchLayer = document.getElementById('touchLayer');
 touchLayer.addEventListener('pointerdown', function (e) {
   e.preventDefault();
-  if (game.car.mode === 'crash') tapQueued = true;
   var p = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY };
   if (e.clientX < window.innerWidth / 2 && !leftPtr) leftPtr = p;
   else if (!rightPtr) rightPtr = p;
@@ -1718,16 +1743,16 @@ function drainEvents() {
     CFAudio.event(ev, game);
     if (ev.type === 'landed') {
       if (ev.band === 'clean') runStats.clean++;
-      if (ev.band === 'crash') { showBanner('CRASH', 'bad', 1200); buzz([50, 40, 80]); }
+      if (ev.band === 'bad') { showBanner('BAD LANDING', 'bad', 1200); buzz([40, 25, 40]); }
       else if (ev.banked > 0) {
-        showBanner((ev.band === 'clean' ? 'CLEAN +' : 'SKETCHY +') + ev.banked.toLocaleString(), ev.band === 'clean' ? '' : 'small', 1100);
+        showBanner((ev.band === 'clean' ? 'CLEAN +' : 'ROUGH +') + ev.banked.toLocaleString(), ev.band === 'clean' ? '' : 'small', 1100);
         if (ev.band === 'clean') buzz(15);
       }
     } else if (ev.type === 'coin') {
       buzz(8);
       if (performance.now() > bannerUntil) showBanner('COIN ' + ev.count + '/24' + (ev.timeBonus ? ' · +' + ev.timeBonus + 's' : ''), 'small', 700);
     } else if (ev.type === 'timePenalty') {
-      showBanner('CRASH -3s', 'bad', 900);
+      showBanner('BAD LANDING -3s', 'bad', 900);
     } else if (ev.type === 'heatStart') {
       final10Shown = false;
       showBanner('HEAT ' + ev.heat, '', 1100);
@@ -1746,9 +1771,9 @@ function drainEvents() {
 }
 function setHeatFog(heat) {
   if (game.mode === 'ladder' && heat >= 5) { // Heat 5: the dusk deepens, never black
-    scene.fog.near = 60; scene.fog.far = 230; scene.fog.color.setHex(0x17604c); scene.background.setHex(0x084a3a);
+    scene.fog.near = 220; scene.fog.far = 1300; scene.fog.color.setHex(0x17604c); scene.background.setHex(0x084a3a);
   } else {
-    scene.fog.near = 90; scene.fog.far = 320; scene.fog.color.setHex(0x2e8f74); scene.background.setHex(0x0d5c46);
+    scene.fog.near = 350; scene.fog.far = 2100; scene.fog.color.setHex(0x2e8f74); scene.background.setHex(0x0d5c46);
   }
 }
 function onRunOver(ev) {
@@ -1903,7 +1928,7 @@ document.addEventListener('visibilitychange', function () {
 });
 
 /* ---------- camera ---------- */
-var camYaw = Math.PI, camDist = 11, camH = 5, wingT = 0, orbitT = 0;
+var camYaw = Math.PI, camDist = 26, camH = 12, wingT = 0, orbitT = 0;
 function lerpAngle(a, b, t) {
   var d = ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
   return a + d * t;
@@ -1911,20 +1936,25 @@ function lerpAngle(a, b, t) {
 function updateCamera(dt) {
   var car = game.car;
   if (!game.started) {
-    /* Attract orbit: a slow, steady circle at rim height looking across
-       the Crown toward the deck. No roll, ever. Reduced motion freezes
-       it to a static wide shot. */
+    /* Attract orbit: a slow, steady, wide circle high over the scaled
+       arena, looking across the Crown toward the deck. No roll, ever.
+       Reduced motion freezes it to a static wide shot. */
     if (!reducedMotion) orbitT += dt;
-    camera.position.set(Math.sin(orbitT * 0.045) * 50, 11, Math.cos(orbitT * 0.045) * 50);
+    camera.position.set(Math.sin(orbitT * 0.03) * 380, 95, Math.cos(orbitT * 0.03) * 380);
     camera.up.set(0, 1, 0);
-    camera.lookAt(0, 3, -8);
+    camera.lookAt(0, 14, -40);
     if (Math.abs(camera.fov - 55) > 0.1) { camera.fov += (55 - camera.fov) * 0.05; camera.updateProjectionMatrix(); }
     return;
   }
   var air = car.mode === 'air';
+  var spd0 = car.mode === 'ground' ? Math.abs(car.speed) : Math.sqrt(car.vx * car.vx + car.vz * car.vz);
+  var spdFrac = CF.clamp(spd0 / 136, 0, 1);
   camYaw = lerpAngle(camYaw, car.heading, 1 - Math.exp(-dt * (air ? 1.1 : 3.6)));
-  camDist += ((air ? 13.5 : 10.5) - camDist) * (1 - Math.exp(-dt * 2.4));
-  camH += ((air ? 6.4 : 4.6) - camH) * (1 - Math.exp(-dt * 2.4));
+  /* Chase distance and height scale across the 0..136 m/s range, and the
+     camera pulls well back on the long airs so the landing zone (and the
+     blob shadow that marks it) stays in frame. */
+  camDist += (((air ? 36 + 30 * spdFrac + Math.min(car.airTime * 2, 12) : 24 + 26 * spdFrac)) - camDist) * (1 - Math.exp(-dt * 2.4));
+  camH += (((air ? 17 + 9 * spdFrac : 10 + 7 * spdFrac)) - camH) * (1 - Math.exp(-dt * 2.4));
   var fx = Math.sin(camYaw), fz = Math.cos(camYaw);
   var px = car.x - fx * camDist, pz = car.z - fz * camDist;
   var py = car.y + camH;
@@ -1935,8 +1965,8 @@ function updateCamera(dt) {
   camera.up.set(0, 1, 0); // horizon locked, architecturally
   camera.lookAt(car.x + fx * 3, car.y + 1.2, car.z + fz * 3);
   var spd = car.mode === 'ground' ? Math.abs(car.speed) : Math.sqrt(car.vx * car.vx + car.vz * car.vz);
-  var fovT = 62 + 8 * CF.clamp(spd / 34, 0, 1) + (air ? 4 * Math.min(car.airTime, 1) : 0);
-  fovT = Math.min(fovT, 74);
+  var fovT = 62 + 14 * CF.clamp(spd / 136, 0, 1) + (air ? 4 * Math.min(car.airTime, 1) : 0);
+  fovT = Math.min(fovT, 82);
   if (Math.abs(camera.fov - fovT) > 0.05) { camera.fov += (fovT - camera.fov) * (1 - Math.exp(-dt * 3)); camera.updateProjectionMatrix(); }
 }
 
@@ -1986,25 +2016,25 @@ function frame(nowMs) {
     coinMeshes[j].rotation.y += dt * 2.2;
     coinMeshes[j].position.x = game.coins[j].x;
     coinMeshes[j].position.z = game.coins[j].z;
-    coinMeshes[j].position.y = game.coins[j].y + Math.sin(nowMs / 500 + j * 1.3) * 0.1;
+    coinMeshes[j].position.y = game.coins[j].y + Math.sin(nowMs / 500 + j * 1.3) * 0.4;
     coinPillars[j].position.x = game.coins[j].x;
     coinPillars[j].position.z = game.coins[j].z;
-    coinPillars[j].position.y = game.coins[j].y + 3.5;
+    coinPillars[j].position.y = game.coins[j].y + 14;
     var pil = coinPillars[j];
     if (game.coins[j].taken) { pil.visible = false; }
     else {
       pil.visible = true;
       var pdx = car.x - game.coins[j].x, pdz = car.z - game.coins[j].z;
       var pdist = Math.sqrt(pdx * pdx + pdz * pdz);
-      pil.material.opacity = CF.clamp((pdist - 7) / 20, 0, 1) * 0.32; // fades out as you close in
+      pil.material.opacity = CF.clamp((pdist - 30) / 120, 0, 1) * 0.32; // fades out as you close in
     }
   }
   var sBelow = CF.groundBelowAt(car.x, car.z, car.y - 0.3);
   var hAbove = Math.max(0, (car.y - 0.35) - sBelow.h);
   shadowMesh.position.set(car.x, sBelow.h + 0.06, car.z);
-  var ss = CF.clamp(1.12 - hAbove * 0.02, 0.5, 1.12);
+  var ss = CF.clamp(1.12 + hAbove * 0.03, 1.12, 4.5);
   shadowMesh.scale.set(ss, ss, ss);
-  shadowMesh.material.opacity = CF.clamp(1 - hAbove * 0.035, 0.3, 1);
+  shadowMesh.material.opacity = CF.clamp(1 - hAbove * 0.004, 0.35, 1);
   updateCamera(dt);
   if (game.started) updateHUD();
   renderer.render(scene, camera);
@@ -2205,24 +2235,24 @@ function thump(t, clean) {
     n.start(t); n.stop(t + 0.05);
   }
 }
-function crashSound(t) {   /* immediate, never quantized: an interruption */
+function impactSound(t) {   /* immediate, never quantized: a heavy scrape, not an ending */
   var n = noiseSrc();
-  var f = ctx.createBiquadFilter(); f.type = 'lowpass';
-  f.frequency.setValueAtTime(2600, t);
-  f.frequency.exponentialRampToValueAtTime(240, t + 0.3);
+  var f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 0.8;
+  f.frequency.setValueAtTime(1800, t);
+  f.frequency.exponentialRampToValueAtTime(300, t + 0.16);
   var g = ctx.createGain();
-  g.gain.setValueAtTime(0.42, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+  g.gain.setValueAtTime(0.30, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
   n.connect(f); f.connect(g); g.connect(sfxBus);
-  n.start(t); n.stop(t + 0.4);
+  n.start(t); n.stop(t + 0.22);
   var o = ctx.createOscillator(); o.type = 'sine';
-  o.frequency.setValueAtTime(95, t);
-  o.frequency.exponentialRampToValueAtTime(30, t + 0.3);
+  o.frequency.setValueAtTime(72, t);
+  o.frequency.exponentialRampToValueAtTime(36, t + 0.14);
   var og = ctx.createGain();
-  og.gain.setValueAtTime(0.5, t);
-  og.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+  og.gain.setValueAtTime(0.32, t);
+  og.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
   o.connect(og); og.connect(sfxBus);
-  o.start(t); o.stop(t + 0.42);
+  o.start(t); o.stop(t + 0.2);
 }
 function coinSound(t, rung) {
   var f0 = LADDER[Math.max(0, Math.min(LADDER.length - 1, rung))];
@@ -2268,7 +2298,7 @@ function frame(game, input) {
     if (!eng) return;
     var spd = car.mode === 'ground' ? Math.abs(car.speed || 0)
       : Math.sqrt((car.vx || 0) * (car.vx || 0) + (car.vz || 0) * (car.vz || 0));
-    var n = Math.max(0, Math.min(1, spd / 34)), t = ctx.currentTime;
+    var n = Math.max(0, Math.min(1, spd / 136)), t = ctx.currentTime;
     var air = car.mode === 'air', live = running && enabledFlag;
     eng.o1.frequency.setTargetAtTime(50 + n * 95, t, 0.09);
     eng.o2.frequency.setTargetAtTime(25 + n * 47, t, 0.09);
@@ -2323,7 +2353,7 @@ function onEvent(ev, game) {
   try {
     var t = ctx.currentTime;
     if (ev.type === 'landed') {
-      if (ev.band === 'crash') crashSound(t);
+      if (ev.band === 'bad') impactSound(t);
       else thump(quantize(t), ev.band === 'clean');
     } else if (ev.type === 'coin') {
       var mult = 1;
