@@ -1363,8 +1363,10 @@ document.getElementById('set-shuffle').addEventListener('click', function () { s
 document.getElementById('set-era').addEventListener('click', function () { settings.era = !settings.era; saveSettings(); applySettings(); });
 document.getElementById('set-haptics').addEventListener('click', function () { settings.haptics = !settings.haptics; saveSettings(); applySettings(); });
 document.getElementById('set-sound').addEventListener('click', function () {
-  soundOn = !soundOn; // Stage A wires the key and the row only; the engine is Stage B
+  soundOn = !soundOn;
   try { localStorage.setItem('cf-sound', soundOn ? 'on' : 'off'); } catch (e) {}
+  CFAudio.setEnabled(soundOn);
+  if (soundOn && game.started && !game.over) CFAudio.startRun();
   applySettings();
 });
 document.getElementById('settingsBtn').addEventListener('click', function () { document.getElementById('settingsPanel').classList.add('open'); });
@@ -1505,6 +1507,7 @@ function drainEvents() {
   var evs = game.events; game.events = [];
   for (var i = 0; i < evs.length; i++) {
     var ev = evs[i];
+    CFAudio.event(ev, game);
     if (ev.type === 'landed') {
       if (ev.band === 'crash') { showBanner('CRASH', 'bad', 1200); buzz([50, 40, 80]); }
       else if (ev.banked > 0) {
@@ -1616,6 +1619,7 @@ function startRun(mode) {
   setHeatFog(0);
   var seed = settings.shuffle ? (Date.now() % 2147483646) + 1 : 1;
   game.reset({ mode: mode, shuffle: settings.shuffle, seed: seed });
+  CFAudio.startRun();   /* the start tap is the gesture that unlocks audio */
 }
 document.getElementById('startBtn').addEventListener('click', function () { startRun('attack'); });
 document.getElementById('ladderBtn').addEventListener('click', function () { startRun('ladder'); });
@@ -1627,6 +1631,7 @@ var paused = false;
 document.addEventListener('visibilitychange', function () {
   paused = document.hidden;
   document.getElementById('pausedChip').style.display = paused ? 'block' : 'none';
+  CFAudio.visibility(document.hidden);
 });
 
 /* ---------- camera ---------- */
@@ -1686,6 +1691,7 @@ function frame(nowMs) {
     tapQueued = false;
     drainEvents();
     syncGates();
+    CFAudio.frame(game, input);
   }
   var car = game.car;
   carGroup.position.set(car.x, car.y - 0.35, car.z);
@@ -1726,6 +1732,353 @@ function frame(nowMs) {
 }
 requestAnimationFrame(frame);
 })();
+</script>
+
+<script id="audio">
+/* COINFLIP sound (Stage B): synthesized liquid drum and bass at 174 BPM
+   plus event sounds quantized to the 8th-note grid. Zero audio files.
+   Fully defensive: if WebAudio is missing or fails, the game is silent
+   and nothing throws. */
+(function (global) {
+'use strict';
+
+var BPM = 174;
+var SPB = 60 / BPM;          /* seconds per beat */
+var EIGHTH = SPB / 2;        /* the event grid, about 172 ms */
+var STEP = SPB / 4;          /* 16th-note scheduler step */
+var BAR = SPB * 4;
+var ROOTS = [43.65, 43.65, 51.91, 38.89];   /* F1, F1, Ab1, Eb1 */
+var CHORDS = [
+  [174.61, 207.65, 261.63],  /* F minor */
+  [174.61, 207.65, 261.63],  /* F minor */
+  [207.65, 261.63, 311.13],  /* Ab major */
+  [155.56, 196.00, 233.08]   /* Eb major */
+];
+var LADDER = [349.23, 415.30, 466.16, 523.25, 622.25, 698.46, 830.61, 932.33]; /* F minor pentatonic climb */
+
+var enabledFlag = true;
+try { if (global.localStorage && global.localStorage.getItem('cf-sound') === 'off') enabledFlag = false; } catch (e) {}
+
+var ctx = null, failed = false;
+var master = null, musicBus = null, sfxBus = null, noiseBuf = null;
+var timer = null, running = false, drums = true;
+var step = 0, nextT = 0, gridT0 = 0, lastWake = 0;
+var eng = null, stab = null, prevWings = false;
+
+function ac() {
+  if (ctx || failed) return ctx;
+  try {
+    var AC = global.AudioContext || global.webkitAudioContext;
+    if (!AC) { failed = true; return null; }
+    ctx = new AC();
+    master = ctx.createGain(); master.gain.value = 0.8; master.connect(ctx.destination);
+    musicBus = ctx.createGain(); musicBus.gain.value = 0.42; musicBus.connect(master);
+    sfxBus = ctx.createGain(); sfxBus.gain.value = 0.9; sfxBus.connect(master);
+    var len = Math.max(1, Math.floor((ctx.sampleRate || 44100) * 2));
+    noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate || 44100);
+    var d = noiseBuf.getChannelData(0);
+    for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  } catch (e) { failed = true; ctx = null; }
+  return ctx;
+}
+function wake() {
+  var c = ac();
+  if (c && c.state === 'suspended') { try { c.resume(); } catch (e) {} }
+  return c;
+}
+function noiseSrc() { var s = ctx.createBufferSource(); s.buffer = noiseBuf; return s; }
+
+/* ---------- music voices: soft, liquid, never punchy ---------- */
+function kick(t) {
+  var o = ctx.createOscillator(); o.type = 'sine';
+  o.frequency.setValueAtTime(112, t);
+  o.frequency.exponentialRampToValueAtTime(38, t + 0.10);
+  var g = ctx.createGain();
+  g.gain.setValueAtTime(0.5, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.24);
+  o.connect(g); g.connect(musicBus);
+  o.start(t); o.stop(t + 0.26);
+}
+function snare(t) {
+  var n = noiseSrc();
+  var f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1800; f.Q.value = 0.8;
+  var g = ctx.createGain();
+  g.gain.setValueAtTime(0.20, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+  n.connect(f); f.connect(g); g.connect(musicBus);
+  n.start(t); n.stop(t + 0.14);
+  var o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = 190;
+  var og = ctx.createGain();
+  og.gain.setValueAtTime(0.09, t);
+  og.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+  o.connect(og); og.connect(musicBus);
+  o.start(t); o.stop(t + 0.08);
+}
+function hat(t, vol, open) {
+  var n = noiseSrc();
+  var f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 7800;
+  var g = ctx.createGain();
+  var dur = open ? 0.18 : 0.04;
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  n.connect(f); f.connect(g); g.connect(musicBus);
+  n.start(t); n.stop(t + dur + 0.02);
+}
+function sub(t, freq, dur, vol) {
+  var o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = freq;
+  var g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+  g.gain.setValueAtTime(vol, t + Math.max(0.03, dur - 0.08));
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g); g.connect(musicBus);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+function pad(t, bar) {
+  var freqs = CHORDS[bar], i;
+  var f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 760; f.Q.value = 0.4;
+  var g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.05, t + 0.5);
+  g.gain.setValueAtTime(0.05, t + Math.max(0.55, BAR - 0.5));
+  g.gain.linearRampToValueAtTime(0.0001, t + BAR + 0.25);
+  f.connect(g); g.connect(musicBus);
+  for (i = 0; i < freqs.length; i++) {
+    var o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = freqs[i];
+    o.connect(f); o.start(t); o.stop(t + BAR + 0.3);
+  }
+}
+function scheduleStep(s, t) {
+  var bar = Math.floor(s / 16) % 4, st = s % 16;
+  if (st === 0) { pad(t, bar); sub(t, ROOTS[bar], BAR * 0.92, 0.5); }
+  if (st === 10) sub(t, ROOTS[bar], SPB * 1.1, 0.34);
+  if (!drums) return;   /* breathers: pad and bass keep breathing alone */
+  if (st === 0 || st === 8) kick(t);
+  if (st === 4 || st === 12) snare(t);
+  if (st % 2 === 0) hat(t, st % 4 === 2 ? 0.085 : 0.05, false);
+  else if (st === 7 || st === 15) hat(t, 0.022, false);
+  if (st === 14) hat(t, 0.06, true);
+}
+function tick() {
+  if (!running || !ctx) return;
+  try {
+    while (nextT < ctx.currentTime + 0.12) { scheduleStep(step, nextT); step++; nextT += STEP; }
+  } catch (e) {}
+}
+/* ---------- engine hum and stabilize air: continuous layers ---------- */
+function startEngine() {
+  var c = ac(); if (!c || eng) return;
+  try {
+    var o1 = c.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = 52;
+    var o2 = c.createOscillator(); o2.type = 'square'; o2.frequency.value = 26;
+    var og = c.createGain(); og.gain.value = 0.4;
+    var f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 300; f.Q.value = 2;
+    var g = c.createGain(); g.gain.value = 0;
+    o1.connect(f); o2.connect(og); og.connect(f); f.connect(g); g.connect(master);
+    o1.start(); o2.start();
+    eng = { o1: o1, o2: o2, f: f, g: g };
+  } catch (e) { eng = null; }
+}
+function stopEngine() {
+  if (!eng || !ctx) { eng = null; return; }
+  var e = eng; eng = null;
+  try {
+    e.g.gain.setTargetAtTime(0, ctx.currentTime, 0.05);
+    setTimeout(function () { try { e.o1.stop(); } catch (x) {} try { e.o2.stop(); } catch (x) {} }, 300);
+  } catch (x) {}
+}
+function startStab() {
+  var c = ac(); if (!c || stab || !noiseBuf) return;
+  try {
+    var s = c.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+    var f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 620; f.Q.value = 0.6;
+    var g = c.createGain(); g.gain.value = 0;
+    s.connect(f); f.connect(g); g.connect(sfxBus);
+    s.start();
+    stab = { s: s, g: g };
+  } catch (e) { stab = null; }
+}
+
+/* ---------- event sounds: landings and coins sit on the grid ---------- */
+function quantize(t) {
+  if (!running) return t;
+  var k = Math.ceil((t - gridT0) / EIGHTH - 1e-4);
+  var qt = gridT0 + k * EIGHTH;
+  if (qt < t - 0.002) qt += EIGHTH;
+  return qt;
+}
+function thump(t, clean) {
+  var o = ctx.createOscillator(); o.type = 'sine';
+  o.frequency.setValueAtTime(clean ? 150 : 105, t);
+  o.frequency.exponentialRampToValueAtTime(46, t + 0.16);
+  var g = ctx.createGain();
+  g.gain.setValueAtTime(clean ? 0.5 : 0.32, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+  o.connect(g); g.connect(sfxBus);
+  o.start(t); o.stop(t + 0.25);
+  if (clean) {   /* a soft tick on top, so a clean landing feels crisp */
+    var n = noiseSrc();
+    var hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 5000;
+    var ng = ctx.createGain();
+    ng.gain.setValueAtTime(0.07, t);
+    ng.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+    n.connect(hp); hp.connect(ng); ng.connect(sfxBus);
+    n.start(t); n.stop(t + 0.05);
+  }
+}
+function crashSound(t) {   /* immediate, never quantized: an interruption */
+  var n = noiseSrc();
+  var f = ctx.createBiquadFilter(); f.type = 'lowpass';
+  f.frequency.setValueAtTime(2600, t);
+  f.frequency.exponentialRampToValueAtTime(240, t + 0.3);
+  var g = ctx.createGain();
+  g.gain.setValueAtTime(0.42, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+  n.connect(f); f.connect(g); g.connect(sfxBus);
+  n.start(t); n.stop(t + 0.4);
+  var o = ctx.createOscillator(); o.type = 'sine';
+  o.frequency.setValueAtTime(95, t);
+  o.frequency.exponentialRampToValueAtTime(30, t + 0.3);
+  var og = ctx.createGain();
+  og.gain.setValueAtTime(0.5, t);
+  og.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+  o.connect(og); og.connect(sfxBus);
+  o.start(t); o.stop(t + 0.42);
+}
+function coinSound(t, rung) {
+  var f0 = LADDER[Math.max(0, Math.min(LADDER.length - 1, rung))];
+  var o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f0;
+  var o2 = ctx.createOscillator(); o2.type = 'sine'; o2.frequency.value = f0 * 2;
+  var g = ctx.createGain();
+  g.gain.setValueAtTime(0.16, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+  var g2 = ctx.createGain();
+  g2.gain.setValueAtTime(0.05, t);
+  g2.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+  o.connect(g); g.connect(sfxBus);
+  o2.connect(g2); g2.connect(sfxBus);
+  o.start(t); o.stop(t + 0.55);
+  o2.start(t); o2.stop(t + 0.35);
+}
+function whoosh(t) {
+  var n = noiseSrc();
+  var f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.1;
+  f.frequency.setValueAtTime(420, t);
+  f.frequency.exponentialRampToValueAtTime(1900, t + 0.16);
+  f.frequency.exponentialRampToValueAtTime(700, t + 0.3);
+  var g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.11, t + 0.07);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+  n.connect(f); f.connect(g); g.connect(sfxBus);
+  n.start(t); n.stop(t + 0.32);
+}
+
+/* ---------- per-frame: engine pitch, stabilize air, wing edge ---------- */
+function frame(game, input) {
+  if (!ctx) return;
+  try {
+    if (running && enabledFlag && ctx.state === 'suspended') {
+      var nowMs = Date.now();
+      if (nowMs - lastWake > 1000) { lastWake = nowMs; wake(); }
+    }
+    if (!game || !game.car) return;
+    var car = game.car;
+    if (car.wings && !prevWings && running && enabledFlag) whoosh(ctx.currentTime);
+    prevWings = !!car.wings;
+    if (!eng) return;
+    var spd = car.mode === 'ground' ? Math.abs(car.speed || 0)
+      : Math.sqrt((car.vx || 0) * (car.vx || 0) + (car.vz || 0) * (car.vz || 0));
+    var n = Math.max(0, Math.min(1, spd / 34)), t = ctx.currentTime;
+    var air = car.mode === 'air', live = running && enabledFlag;
+    eng.o1.frequency.setTargetAtTime(50 + n * 95, t, 0.09);
+    eng.o2.frequency.setTargetAtTime(25 + n * 47, t, 0.09);
+    eng.f.frequency.setTargetAtTime((air ? 230 : 320) + n * (air ? 480 : 950), t, 0.09);
+    eng.g.gain.setTargetAtTime(live ? (air ? 0.018 : 0.036) : 0, t, 0.12);
+    if (stab) stab.g.gain.setTargetAtTime(live && air && input && input.stabilize ? 0.015 : 0, t, 0.08);
+  } catch (e) {}
+}
+
+/* ---------- lifecycle and the core-event router ---------- */
+function startRun() {
+  if (!enabledFlag) return;
+  var c = wake(); if (!c) return;
+  try {
+    musicBus.gain.cancelScheduledValues(c.currentTime);
+    musicBus.gain.setTargetAtTime(0.42, c.currentTime, 0.05);
+    running = true; drums = true;
+    if (!timer) {
+      step = 0;
+      gridT0 = c.currentTime + 0.06;
+      nextT = gridT0;
+      timer = setInterval(tick, 25);
+      tick();
+    }
+  } catch (e) {}
+  startEngine(); startStab();
+}
+function stopRun() {
+  running = false;
+  if (timer) { clearInterval(timer); timer = null; }
+  if (ctx && musicBus) { try { musicBus.gain.setTargetAtTime(0, ctx.currentTime, 0.08); } catch (e) {} }
+  stopEngine();
+  if (stab && ctx) { try { stab.g.gain.setTargetAtTime(0, ctx.currentTime, 0.05); } catch (e) {} }
+  prevWings = false;
+}
+function setEnabled(on) {
+  enabledFlag = !!on;
+  if (!enabledFlag) {
+    stopRun();
+    if (ctx) { try { ctx.suspend(); } catch (e) {} }
+  }
+}
+function visibility(hidden) {
+  if (!ctx) return;
+  try {
+    if (hidden) { if (ctx.state === 'running') ctx.suspend(); }
+    else if (enabledFlag && ctx.state === 'suspended') ctx.resume();
+  } catch (e) {}
+}
+function onEvent(ev, game) {
+  if (!enabledFlag || !ctx || !running || !ev) return;
+  try {
+    var t = ctx.currentTime;
+    if (ev.type === 'landed') {
+      if (ev.band === 'crash') crashSound(t);
+      else thump(quantize(t), ev.band === 'clean');
+    } else if (ev.type === 'coin') {
+      var mult = 1;
+      try { if (game && game.scoring && game.scoring.state) mult = game.scoring.state.mult || 1; } catch (e) {}
+      coinSound(quantize(t), Math.round((mult - 1) * 2));
+    } else if (ev.type === 'heatClear') {
+      drums = false;
+    } else if (ev.type === 'heatStart') {
+      drums = true;
+    } else if (ev.type === 'runover') {
+      stopRun();
+    }
+  } catch (e) {}
+}
+
+global.CFAudio = {
+  startRun: startRun,
+  stopRun: stopRun,
+  frame: frame,
+  event: onEvent,
+  setEnabled: setEnabled,
+  visibility: visibility,
+  isEnabled: function () { return enabledFlag; },
+  _debug: {
+    gridT0: function () { return gridT0; },
+    eighth: EIGHTH,
+    running: function () { return running; },
+    drums: function () { return drums; },
+    tick: tick,
+    ctx: function () { return ctx; },
+    quantize: quantize
+  }
+};
+})(typeof window !== 'undefined' ? window : globalThis);
 </script>
 </body>
 </html>
