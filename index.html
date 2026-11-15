@@ -63,7 +63,8 @@
   #hbBtn {
     position: absolute; z-index: 6; right: 18px; bottom: 118px;
     width: 62px; height: 62px; border-radius: 50%;
-    border: 2px solid rgba(25,240,160,0.55); background: rgba(10,16,13,0.55);
+    border: 2px solid #2b2320; background: rgba(10,16,13,0.55);
+    box-shadow: 3px 3px 0 rgba(43,35,32,0.7);
     color: #19f0a0; font-size: 15px; font-weight: 800; letter-spacing: 1px;
     display: flex; align-items: center; justify-content: center; pointer-events: auto;
   }
@@ -73,7 +74,8 @@
   .steerBtn {
     position: absolute; z-index: 6; bottom: 118px;
     width: 62px; height: 62px; border-radius: 50%;
-    border: 2px solid rgba(25,240,160,0.55); background: rgba(10,16,13,0.55);
+    border: 2px solid #2b2320; background: rgba(10,16,13,0.55);
+    box-shadow: 3px 3px 0 rgba(43,35,32,0.7);
     color: #19f0a0; font-size: 20px; font-weight: 800;
     display: none; align-items: center; justify-content: center; pointer-events: auto;
   }
@@ -85,7 +87,8 @@
   #settingsPanel {
     position: absolute; z-index: 21; top: calc(8px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
     width: 300px; max-height: 88%; overflow-y: auto;
-    background: rgba(7,38,30,0.96); border: 1px solid rgba(25,240,160,0.5); border-radius: 12px;
+    background: rgba(7,38,30,0.96); border: 2px solid #2b2320; border-radius: 12px;
+    box-shadow: 6px 6px 0 rgba(43,35,32,0.8);
     padding: 12px 14px; display: none;
   }
   #settingsPanel.open { display: block; }
@@ -94,7 +97,8 @@
   .srow { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   .srow label { font-size: 12px; font-weight: 700; color: #cfe0d7; letter-spacing: 0.5px; }
   .srow button {
-    pointer-events: auto; cursor: pointer; border: 1px solid rgba(25,240,160,0.5); border-radius: 8px;
+    pointer-events: auto; cursor: pointer; border: 2px solid #2b2320; border-radius: 8px;
+    box-shadow: 3px 3px 0 rgba(43,35,32,0.8);
     background: rgba(25,240,160,0.12); color: #19f0a0; font-weight: 800; font-size: 12px; letter-spacing: 1px;
     padding: 7px 12px; min-width: 96px;
   }
@@ -109,7 +113,8 @@
   #tunePanel {
     position: absolute; z-index: 20; top: calc(8px + env(safe-area-inset-top)); left: 8px;
     width: 264px; max-height: 86%; overflow-y: auto;
-    background: rgba(7,38,30,0.95); border: 1px solid rgba(25,240,160,0.5); border-radius: 12px;
+    background: rgba(7,38,30,0.95); border: 2px solid #2b2320; border-radius: 12px;
+    box-shadow: 6px 6px 0 rgba(43,35,32,0.8);
     padding: 12px 14px; display: none;
   }
   #tunePanel.open { display: block; }
@@ -120,11 +125,12 @@
   .trow label span { color: #19d3da; font-weight: 800; }
   .trow input[type=range] { width: 100%; height: 26px; accent-color: #19f0a0; }
   #tuneClose, .bigBtn {
-    pointer-events: auto; cursor: pointer; border: none; border-radius: 10px;
+    pointer-events: auto; cursor: pointer; border: 2px solid #2b2320; border-radius: 10px;
+    box-shadow: 4px 4px 0 rgba(43,35,32,0.85);
     background: #19f0a0; color: #06231a; font-weight: 900; letter-spacing: 1px;
   }
   #tuneClose { width: 100%; padding: 10px; font-size: 14px; margin-top: 2px; }
-  #tuneReset { width: 100%; padding: 8px; font-size: 12px; margin-top: 8px; background: rgba(255,255,255,0.12); color: #cfe0d7; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; pointer-events: auto; }
+  #tuneReset { width: 100%; padding: 8px; font-size: 12px; margin-top: 8px; background: rgba(255,255,255,0.12); color: #cfe0d7; border: 2px solid #2b2320; box-shadow: 3px 3px 0 rgba(43,35,32,0.8); border-radius: 10px; font-weight: 700; cursor: pointer; pointer-events: auto; }
 
   .screen {
     position: absolute; inset: 0; z-index: 15; display: flex; flex-direction: column;
@@ -135,7 +141,8 @@
   .screen h1 .jade { color: #19f0a0; }
   .tag {
     margin-top: 8px; font-size: 13px; font-weight: 800; letter-spacing: 3px; color: #06231a;
-    background: #19f0a0; padding: 4px 12px; border-radius: 6px;
+    background: #19f0a0; padding: 4px 12px; border-radius: 6px; border: 2px solid #2b2320;
+    box-shadow: 3px 3px 0 rgba(43,35,32,0.85);
   }
   .howto { margin-top: 20px; font-size: 16px; line-height: 1.55; color: #cfe0d7; max-width: 520px; }
   .bests { margin-top: 14px; font-size: 13px; font-weight: 700; letter-spacing: 1px; color: #93a39a; min-height: 18px; }
@@ -155,6 +162,7 @@
     position: absolute; z-index: 9; top: 40%; left: 50%; transform: translate(-50%,-50%);
     font-size: 22px; font-weight: 900; letter-spacing: 3px; color: #eafff5;
     background: rgba(7,38,30,0.8); padding: 10px 22px; border-radius: 10px; display: none; pointer-events: none;
+    border: 2px solid #2b2320; box-shadow: 4px 4px 0 rgba(43,35,32,0.8);
   }
 
   /* ---------- Stage C: attract menu, how-to, pause, tally ---------- */
@@ -166,7 +174,8 @@
   .modeCards { display: flex; flex-direction: column; gap: 12px; margin-top: 22px; width: min(430px, 92vw); }
   .modeCard {
     pointer-events: auto; cursor: pointer; text-align: left; font-family: inherit;
-    background: rgba(7,38,30,0.85); border: 1.5px solid rgba(25,240,160,0.55); border-radius: 14px;
+    background: rgba(7,38,30,0.85); border: 2px solid #2b2320; border-radius: 14px;
+    box-shadow: 5px 5px 0 rgba(43,35,32,0.85);
     padding: 14px 18px; color: #dfe7e2;
   }
   .mcName { display: block; font-size: 21px; font-weight: 900; letter-spacing: 1.5px; color: #19f0a0; }
@@ -178,7 +187,8 @@
   #howtoPanel {
     position: absolute; z-index: 21; top: calc(8px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
     width: 330px; max-width: 92vw; max-height: 88%; overflow-y: auto;
-    background: rgba(7,38,30,0.96); border: 1px solid rgba(25,240,160,0.5); border-radius: 12px;
+    background: rgba(7,38,30,0.96); border: 2px solid #2b2320; border-radius: 12px;
+    box-shadow: 6px 6px 0 rgba(43,35,32,0.8);
     padding: 12px 16px; display: none; text-align: left;
   }
   #howtoPanel.open { display: block; }
@@ -191,7 +201,8 @@
   #pauseBtn {
     position: absolute; z-index: 6; top: calc(76px + env(safe-area-inset-top)); right: 14px;
     width: 48px; height: 48px; border-radius: 50%;
-    border: 2px solid rgba(25,240,160,0.55); background: rgba(10,16,13,0.55);
+    border: 2px solid #2b2320; background: rgba(10,16,13,0.55);
+    box-shadow: 3px 3px 0 rgba(43,35,32,0.7);
     color: #19f0a0; font-size: 14px; font-weight: 900; letter-spacing: 1px;
     display: none; align-items: center; justify-content: center; pointer-events: auto; cursor: pointer;
   }
@@ -209,7 +220,8 @@
   #tallyScore.gold { color: #ffc44d; text-shadow: 0 3px 18px rgba(255,196,77,0.35); }
   #tallyNewBest {
     display: none; margin-top: 12px; font-size: 13px; font-weight: 900; letter-spacing: 3px;
-    color: #06231a; background: #ffc44d; padding: 4px 12px; border-radius: 6px;
+    color: #06231a; background: #ffc44d; padding: 4px 12px; border-radius: 6px; border: 2px solid #2b2320;
+    box-shadow: 3px 3px 0 rgba(43,35,32,0.85);
   }
   #tallySummary { margin-top: 12px; font-size: 15px; font-weight: 700; color: #93c7b2; min-height: 20px; }
   #menuBtn { margin-top: 14px; }
@@ -1236,51 +1248,125 @@ var sun = new THREE.DirectionalLight(0xfff2d8, 0.95);
 sun.position.set(40, 90, 25);
 scene.add(sun);
 
-/* ---------- sky dome: a full dusk gradient, teal zenith to a gold-coral
-   horizon. No black anywhere: even below the horizon the dome stays a
-   deep warm teal-green haze, so the world never shows void. ---------- */
+/* ---------- sky dome: CEL EMPIRE printed sky. Hard teal bands (no smooth
+   gradient), a halftone dot field that densifies toward the horizon, flat
+   graphic clouds with teal undersides, and a flat distant range sitting on
+   the horizon line. Daytime comic sky: no stars, no black anywhere. ------ */
 (function buildSky() {
   var cv = document.createElement('canvas'); cv.width = 1024; cv.height = 512;
   var ctx = cv.getContext('2d');
-  var grad = ctx.createLinearGradient(0, 0, 0, 512);
-  grad.addColorStop(0, '#063a4d'); grad.addColorStop(0.30, '#0a6e52');
-  grad.addColorStop(0.46, '#2fa37c'); grad.addColorStop(0.545, '#ffc46b');
-  grad.addColorStop(0.585, '#ff9a5c'); grad.addColorStop(0.63, '#1d7a5f');
-  grad.addColorStop(1, '#0b3d33');
-  ctx.fillStyle = grad; ctx.fillRect(0, 0, 1024, 512);
-  // warm sunset glow, brightest on one horizon (u ~0.25)
-  var glow = ctx.createRadialGradient(256, 292, 10, 256, 292, 340);
-  glow.addColorStop(0, 'rgba(255,196,107,0.55)'); glow.addColorStop(0.45, 'rgba(255,154,92,0.22)'); glow.addColorStop(1, 'rgba(255,154,92,0)');
-  ctx.fillStyle = glow; ctx.fillRect(0, 120, 1024, 260);
-  var band = ctx.createLinearGradient(0, 268, 0, 300);
-  band.addColorStop(0, 'rgba(255,196,107,0)'); band.addColorStop(0.5, 'rgba(255,220,150,0.28)'); band.addColorStop(1, 'rgba(255,196,107,0)');
-  ctx.fillStyle = band; ctx.fillRect(0, 268, 1024, 32);
-  // a few faint stars high in the teal, kept subtle against the dusk
-  for (var i = 0; i < 110; i++) {
-    var sx = Math.random() * 1024, sy = Math.pow(Math.random(), 1.4) * 150;
-    var a = 0.10 + Math.random() * 0.25, r = Math.random() < 0.08 ? 1.6 : 1;
-    ctx.fillStyle = 'rgba(230,255,244,' + a.toFixed(2) + ')';
-    ctx.fillRect(sx, sy, r, r);
+  // hard horizontal bands; the horizon sits at y ~284, as before
+  var bands = [
+    [0, '#0a6b7c'], [140, '#0f8f84'], [228, '#2bb39e'], [268, '#a9e8d2'],
+    [284, '#ffd9a0'], [294, '#57b39b'], [352, '#35987d'], [424, '#1f7a5f'], [512, '#1f7a5f']
+  ];
+  for (var b = 0; b < bands.length - 1; b++) {
+    ctx.fillStyle = bands[b][1];
+    ctx.fillRect(0, bands[b][0], 1024, bands[b + 1][0] - bands[b][0]);
   }
+  // flat distant range on the horizon: ink-outlined teal-blue silhouettes
+  ctx.fillStyle = '#2a7f8f';
+  ctx.beginPath(); ctx.moveTo(0, 284);
+  var peaks = [60, 236, 130, 300, 190, 268, 110, 330, 210, 284];
+  for (var p = 0; p < peaks.length; p++) ctx.lineTo((p + 0.5) * 102.4, 284 - peaks[p] * 0.28);
+  ctx.lineTo(1024, 284); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(43,35,32,0.55)'; ctx.lineWidth = 2; ctx.stroke();
+  // halftone dots: small and sparse high up, bigger and denser at the horizon
+  ctx.fillStyle = 'rgba(4,50,56,0.20)';
+  for (var hy = 26; hy < 300; hy += 15) {
+    var hr = 0.7 + (hy / 300) * 2.0, off = ((hy / 15) % 2) * 8;
+    for (var hx = off; hx < 1024; hx += 16) {
+      ctx.beginPath(); ctx.arc(hx, hy, hr, 0, 6.2832); ctx.fill();
+    }
+  }
+  // flat graphic clouds: teal underside shape first, near-white body on top,
+  // a few halftone dots printed into the belly
+  var seed = 7;
+  function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+  function cloud(cx, cy, s) {
+    var blobs = [[0, 0, 46], [-38, 6, 32], [36, 8, 34], [-14, -14, 30], [18, -10, 28]];
+    ctx.fillStyle = '#4fb3a1';
+    blobs.forEach(function (bl) {
+      ctx.beginPath(); ctx.ellipse(cx + bl[0] * s, cy + (bl[1] + 7) * s, bl[2] * s, bl[2] * 0.62 * s, 0, 0, 6.2832); ctx.fill();
+    });
+    ctx.fillStyle = '#eafcf4';
+    blobs.forEach(function (bl) {
+      ctx.beginPath(); ctx.ellipse(cx + bl[0] * s, cy + bl[1] * s, bl[2] * s, bl[2] * 0.62 * s, 0, 0, 6.2832); ctx.fill();
+    });
+    ctx.fillStyle = 'rgba(15,110,100,0.28)';
+    for (var d = 0; d < 7; d++) {
+      ctx.beginPath();
+      ctx.arc(cx + (rnd() - 0.5) * 80 * s, cy + (8 + rnd() * 10) * s, 1.8 * s, 0, 6.2832); ctx.fill();
+    }
+  }
+  for (var c = 0; c < 16; c++) cloud(rnd() * 1024, 30 + rnd() * 205, 0.55 + rnd() * 0.85);
   var tex = new THREE.CanvasTexture(cv);
   var dome = new THREE.Mesh(new THREE.SphereGeometry(3000, 24, 14),
     new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false }));
   scene.add(dome);
 })();
 
-function lam(color) { return new THREE.MeshLambertMaterial({ color: color }); }
-var JADE = new THREE.MeshBasicMaterial({ color: 0x19f0a0 });
+/* ---------- CEL EMPIRE materials: every lit surface is a MeshToonMaterial
+   sharing one 4-step gradient map, so light falls in hard printed bands.
+   INK is a deep warm charcoal (never pure black): it is line work, the
+   plate's outlines, not shadow. The old jade edge trim now renders as ink
+   line work via the JADE slot; flat bright jade survives only on small
+   accents (wings, gate faces, the energy wall). ---------- */
+var INK_HEX = 0x2b2320;
+var TOON_GRAD = (function () {
+  var data = new Uint8Array([110, 165, 215, 255]);
+  var fmt = (renderer.capabilities.isWebGL2) ? THREE.RedFormat : THREE.LuminanceFormat;
+  var t = new THREE.DataTexture(data, 4, 1, fmt);
+  t.minFilter = THREE.NearestFilter; t.magFilter = THREE.NearestFilter;
+  t.generateMipmaps = false; t.needsUpdate = true;
+  return t;
+})();
+function lam(color) { return new THREE.MeshToonMaterial({ color: color, gradientMap: TOON_GRAD }); }
+var INK_MAT = new THREE.MeshBasicMaterial({ color: INK_HEX, side: THREE.BackSide });
+var JADE = new THREE.MeshBasicMaterial({ color: INK_HEX });
+/* Inverted-hull ink outline for a box mesh: a slightly larger BackSide copy
+   in flat ink. Reads mesh.geometry.parameters, so it follows any box. */
+function inkHull(mesh, grow) {
+  var p = mesh.geometry.parameters;
+  var h = new THREE.Mesh(new THREE.BoxGeometry(p.width + grow, p.height + grow, p.depth + grow), INK_MAT);
+  h.position.copy(mesh.position); h.rotation.copy(mesh.rotation);
+  scene.add(h); return h;
+}
 function strip(w, d, x, y, z, mat) {
   var m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.5, d), mat || JADE);
   m.position.set(x, y, z); scene.add(m); return m;
 }
 
-/* ---------- terrain mesh from the analytic heightfield ---------- */
-var ZONE_COLORS = { floor: 0x14705f, bowl: 0x1b9e8f, crown: 0x17a05e, 'crown-apex': 0x25c46f,
-                    feeder: 0xa87c36, ramp: 0x1f8f74, qp: 0xbf5f43 };
+/* ---------- terrain mesh from the analytic heightfield ----------
+   CEL palette: floor and bowl stay teal-green; the Crown becomes the big
+   amber-coral monument from the plate, feeders amber, ramps and quarter
+   pipes coral. The printed look comes from a repeating canvas tile (panel
+   seams + halftone dots) multiplied over the zone vertex colors. -------- */
+var ZONE_COLORS = { floor: 0x16805f, bowl: 0x1b9e8f, crown: 0xe2703a, 'crown-apex': 0xf2a541,
+                    feeder: 0xd98e32, ramp: 0xd95f38, qp: 0xcf5a34 };
+var groundTex = (function () {
+  var cv = document.createElement('canvas'); cv.width = cv.height = 256;
+  var ctx = cv.getContext('2d');
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 256, 256);
+  ctx.fillStyle = 'rgba(0,0,0,0.05)'; ctx.fillRect(128, 0, 128, 128); ctx.fillRect(0, 128, 128, 128);
+  ctx.fillStyle = 'rgba(20,40,36,0.10)';
+  for (var gy = 16; gy < 256; gy += 32) {
+    for (var gx = ((gy / 32) % 2) * 16 + 16; gx < 256; gx += 32) {
+      ctx.beginPath(); ctx.arc(gx, gy, 2.2, 0, 6.2832); ctx.fill();
+    }
+  }
+  ctx.fillStyle = 'rgba(35,45,40,0.55)';
+  ctx.fillRect(0, 0, 256, 5); ctx.fillRect(0, 0, 5, 256);
+  ctx.fillRect(128, 0, 2, 256); ctx.fillRect(0, 128, 256, 2);
+  var t = new THREE.CanvasTexture(cv);
+  t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(40, 40); // one tile = 30 m of arena floor
+  return t;
+})();
+var terrainMat = new THREE.MeshToonMaterial({ vertexColors: true, map: groundTex, gradientMap: TOON_GRAD });
 var terrainMesh = null;
 function buildTerrain() {
-  if (terrainMesh) { scene.remove(terrainMesh); terrainMesh.geometry.dispose(); terrainMesh.material.dispose(); }
+  if (terrainMesh) { scene.remove(terrainMesh); terrainMesh.geometry.dispose(); }
   var geo = new THREE.PlaneGeometry(1200, 1200, 240, 240);
   geo.rotateX(-Math.PI / 2);
   var pos = geo.attributes.position, colors = new Float32Array(pos.count * 3), col = new THREE.Color();
@@ -1288,12 +1374,12 @@ function buildTerrain() {
     var x = pos.getX(i), z = pos.getZ(i);
     var s = CF.terrainAt(x, z);
     pos.setY(i, s.h);
-    col.setHex(ZONE_COLORS[s.zone] || 0x14705f);
+    col.setHex(ZONE_COLORS[s.zone] || 0x16805f);
     colors[i * 3] = col.r; colors[i * 3 + 1] = col.g; colors[i * 3 + 2] = col.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geo.computeVertexNormals();
-  var mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true }));
+  var mesh = new THREE.Mesh(geo, terrainMat);
   terrainMesh = mesh;
   scene.add(mesh);
 }
@@ -1302,23 +1388,23 @@ buildTerrain();
 /* ---------- elevated structures ---------- */
 var deckRampMeshes = [];
 (function buildStructures() {
-  var rimMat = lam(0x177a6b), deckMat = lam(0x5d4f92);
+  var rimMat = lam(0xcf5a33), deckMat = lam(0x5a6390);
   function box(w, h, d, x, y, z, mat) {
     var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
     m.position.set(x, y, z); scene.add(m); return m;
   }
-  // Rim road boxes (the perimeter band, 572..600 at h=24)
-  box(1200, 24, 28, 0, 12, -586, rimMat); box(1200, 24, 28, 0, 12, 586, rimMat);
-  box(28, 24, 1144, 586, 12, 0, rimMat); box(28, 24, 1144, -586, 12, 0, rimMat);
+  // Rim road boxes (the perimeter band, 572..600 at h=24), each ink-hulled
+  inkHull(box(1200, 24, 28, 0, 12, -586, rimMat), 0.7); inkHull(box(1200, 24, 28, 0, 12, 586, rimMat), 0.7);
+  inkHull(box(28, 24, 1144, 586, 12, 0, rimMat), 0.7); inkHull(box(28, 24, 1144, -586, 12, 0, rimMat), 0.7);
   strip(1200, 1.1, 0, 24.25, -572.3); strip(1200, 1.1, 0, 24.25, 572.3);
   strip(1.1, 1144, 572.3, 24.25, 0); strip(1.1, 1144, -572.3, 24.25, 0);
   // Crown apex outline (16x16 at h=28)
   strip(17.6, 1, 0, 28.25, 8); strip(17.6, 1, 0, 28.25, -8);
   strip(1, 17.6, 8, 28.25, 0); strip(1, 17.6, -8, 28.25, 0);
   // Upper deck slabs, supports, access ramps, front edge trim
-  box(514, 4, 28, 275, 38, -586, deckMat); box(514, 4, 28, -275, 38, -586, deckMat);
-  box(2.4, 12, 2.4, 500, 30, -594, deckMat); box(2.4, 12, 2.4, 60, 30, -594, deckMat);
-  box(2.4, 12, 2.4, -500, 30, -594, deckMat); box(2.4, 12, 2.4, -60, 30, -594, deckMat);
+  inkHull(box(514, 4, 28, 275, 38, -586, deckMat), 0.5); inkHull(box(514, 4, 28, -275, 38, -586, deckMat), 0.5);
+  inkHull(box(2.4, 12, 2.4, 500, 30, -594, deckMat), 0.4); inkHull(box(2.4, 12, 2.4, 60, 30, -594, deckMat), 0.4);
+  inkHull(box(2.4, 12, 2.4, -500, 30, -594, deckMat), 0.4); inkHull(box(2.4, 12, 2.4, -60, 30, -594, deckMat), 0.4);
   strip(514, 1.1, 275, 40.25, -572.3); strip(514, 1.1, -275, 40.25, -572.3);
   function deckRamp(sign) {
     var g2 = new THREE.PlaneGeometry(40, 28, 10, 1);
@@ -1329,16 +1415,17 @@ var deckRampMeshes = [];
       p.setY(i, sign > 0 ? 24 + (572 - wx) * 0.4 : 24 + (wx + 572) * 0.4);
     }
     g2.computeVertexNormals();
-    var m = new THREE.Mesh(g2, new THREE.MeshLambertMaterial({ color: 0x177a6b, side: THREE.DoubleSide }));
+    var m = new THREE.Mesh(g2, new THREE.MeshToonMaterial({ color: 0x5a6390, gradientMap: TOON_GRAD, side: THREE.DoubleSide }));
     m.position.set(sign * 552, 0, -586); scene.add(m); deckRampMeshes.push(m);
   }
   deckRamp(1); deckRamp(-1);
   // The Rail across the bowl corner
   var R = CF.RAIL, len = Math.sqrt((R.x2 - R.x1) * (R.x2 - R.x1) + (R.z2 - R.z1) * (R.z2 - R.z1));
-  var rail = new THREE.Mesh(new THREE.BoxGeometry(5.6, 1.2, len), lam(0x2a9d74));
+  var rail = new THREE.Mesh(new THREE.BoxGeometry(5.6, 1.2, len), lam(0xd98e32));
   rail.position.set((R.x1 + R.x2) / 2, R.h - 0.6, (R.z1 + R.z2) / 2);
   rail.rotation.y = Math.atan2(R.x2 - R.x1, R.z2 - R.z1);
   scene.add(rail);
+  inkHull(rail, 0.4);
   var railTrim = new THREE.Mesh(new THREE.BoxGeometry(1, 0.4, len), JADE);
   railTrim.position.copy(rail.position); railTrim.position.y = R.h + 0.2;
   railTrim.rotation.y = rail.rotation.y; scene.add(railTrim);
@@ -1394,6 +1481,17 @@ var deckRampMeshes = [];
   }
   ewall(1200, 0, -600, 0); ewall(1200, 0, 600, 0);
   ewall(1200, -600, 0, Math.PI / 2); ewall(1200, 600, 0, Math.PI / 2);
+  // ink posts at intervals along the wall line: the fence of the printed room
+  var postGeo = new THREE.BoxGeometry(2.4, 80, 1.4);
+  var postMat = new THREE.MeshBasicMaterial({ color: INK_HEX });
+  for (var pi = -525; pi <= 525; pi += 150) {
+    [[pi, -600, 0], [pi, 600, 0], [-600, pi, 1], [600, pi, 1]].forEach(function (pp) {
+      var post = new THREE.Mesh(postGeo, postMat);
+      post.position.set(pp[0], 40, pp[1]);
+      if (pp[2]) post.rotation.y = Math.PI / 2;
+      scene.add(post);
+    });
+  }
 })();
 
 /* ---------- heat gates: jade barriers standing at the locked ramps ---------- */
@@ -1442,16 +1540,9 @@ var coinMeshes = [], coinPillars = [];
 (function buildCoins() {
   var geo = new THREE.CylinderGeometry(3.6, 3.6, 0.64, 24);
   geo.rotateX(Math.PI / 2);
-  var mat = new THREE.MeshLambertMaterial({ color: 0xffc44d, emissive: 0x9a6200 });
+  var mat = new THREE.MeshToonMaterial({ color: 0xffc44d, emissive: 0x9a6200, gradientMap: TOON_GRAD });
   var rimGeo = new THREE.TorusGeometry(3.6, 0.28, 10, 32);
-  var rimMat = new THREE.MeshBasicMaterial({ color: 0xffc44d });
-  // soft vertical gradient for the light pillars (bright at the coin, gone at the top)
-  var pcv = document.createElement('canvas'); pcv.width = 1; pcv.height = 64;
-  var pctx = pcv.getContext('2d');
-  var pg = pctx.createLinearGradient(0, 64, 0, 0);
-  pg.addColorStop(0, '#ffffff'); pg.addColorStop(1, '#000000');
-  pctx.fillStyle = pg; pctx.fillRect(0, 0, 1, 64);
-  var pillarTex = new THREE.CanvasTexture(pcv);
+  var rimMat = new THREE.MeshBasicMaterial({ color: INK_HEX }); // ink ring: the coin's printed outline
   var pillarGeo = new THREE.CylinderGeometry(0.56, 1.2, 28, 10, 1, true);
   for (var i = 0; i < CF.COINS.length; i++) {
     var m = new THREE.Mesh(geo, mat);
@@ -1459,8 +1550,8 @@ var coinMeshes = [], coinPillars = [];
     var rim = new THREE.Mesh(rimGeo, rimMat); m.add(rim);
     scene.add(m); coinMeshes.push(m);
     var pillar = new THREE.Mesh(pillarGeo, new THREE.MeshBasicMaterial({
-      color: 0xffc44d, alphaMap: pillarTex, transparent: true, opacity: 0,
-      blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false, fog: false }));
+      color: 0xffc44d, transparent: true, opacity: 0,
+      side: THREE.DoubleSide, depthWrite: false, fog: false })); // flat translucent gold band
     pillar.position.set(CF.COINS[i].x, CF.COINS[i].y + 14, CF.COINS[i].z);
     scene.add(pillar); coinPillars.push(pillar);
   }
@@ -1469,13 +1560,18 @@ var coinMeshes = [], coinPillars = [];
 /* ---------- the car ---------- */
 var carGroup = new THREE.Group(), wingL, wingR, wheels = [];
 (function buildCar() {
-  var body = lam(0x15b56b), dark = lam(0x14302a), canopy = lam(0x0d2b26);
+  var body = lam(0x1fb457), dark = lam(0x35302b), canopy = lam(0x9fd4c8);
   function part(geo, mat, x, y, z) {
     var m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); carGroup.add(m); return m;
   }
-  part(new THREE.BoxGeometry(1.8, 0.42, 3.6), body, 0, 0.52, 0);
-  part(new THREE.BoxGeometry(1.7, 0.3, 0.8), body, 0, 0.42, -2.0);
-  part(new THREE.BoxGeometry(1.15, 0.38, 1.5), canopy, 0, 0.9, 0.25);
+  function carHull(mesh, grow) {
+    var p = mesh.geometry.parameters;
+    var h = new THREE.Mesh(new THREE.BoxGeometry(p.width + grow, p.height + grow, p.depth + grow), INK_MAT);
+    h.position.copy(mesh.position); carGroup.add(h); return h;
+  }
+  carHull(part(new THREE.BoxGeometry(1.8, 0.42, 3.6), body, 0, 0.52, 0), 0.09);
+  carHull(part(new THREE.BoxGeometry(1.7, 0.3, 0.8), body, 0, 0.42, -2.0), 0.09);
+  carHull(part(new THREE.BoxGeometry(1.15, 0.38, 1.5), canopy, 0, 0.9, 0.25), 0.09);
   part(new THREE.BoxGeometry(0.5, 0.07, 3.2), JADE, 0, 0.76, -0.1); // top stripe: rotation readability
   part(new THREE.BoxGeometry(1.7, 0.08, 0.4), dark, 0, 0.98, 1.75);
   var wgeo = new THREE.CylinderGeometry(0.35, 0.35, 0.3, 12); wgeo.rotateZ(Math.PI / 2);
@@ -1512,7 +1608,7 @@ var shadowMesh;
   var cv = document.createElement('canvas'); cv.width = cv.height = 128;
   var ctx = cv.getContext('2d');
   var grad = ctx.createRadialGradient(64, 64, 6, 64, 64, 62);
-  grad.addColorStop(0, 'rgba(0,0,0,0.62)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+  grad.addColorStop(0, 'rgba(43,35,32,0.88)'); grad.addColorStop(0.72, 'rgba(43,35,32,0.82)'); grad.addColorStop(1, 'rgba(43,35,32,0)');
   ctx.fillStyle = grad; ctx.fillRect(0, 0, 128, 128);
   var tex = new THREE.CanvasTexture(cv);
   shadowMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 4.8),
