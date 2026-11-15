@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>COINFLIP: Pilot</title>
+<title>COINFLIP</title>
 <style>
   html, body {
     height: 100%;
@@ -99,8 +99,7 @@
     padding: 7px 12px; min-width: 96px;
   }
   #settingsClose { width: 100%; padding: 10px; font-size: 14px; margin-top: 2px; }
-  .modeBtn { margin-top: 14px; }
-  #settingsBtn { margin-top: 14px; background: rgba(255,255,255,0.12); color: #cfe0d7; }
+  .ghostBtn { background: rgba(255,255,255,0.12); color: #cfe0d7; }
   #breatherScreen { display: none; }
   #breatherCount { font-size: 46px; font-weight: 900; color: #19f0a0; margin-top: 10px; }
   #breatherRows { margin-top: 12px; font-size: 18px; line-height: 1.9; color: #cfe0d7; }
@@ -157,6 +156,67 @@
     font-size: 22px; font-weight: 900; letter-spacing: 3px; color: #eafff5;
     background: rgba(7,38,30,0.8); padding: 10px 22px; border-radius: 10px; display: none; pointer-events: none;
   }
+
+  /* ---------- Stage C: attract menu, how-to, pause, tally ---------- */
+  #startScreen { background: linear-gradient(rgba(6,40,32,0.40), rgba(6,40,32,0.78)); }
+  #loadingLine {
+    margin-top: 14px; font-size: 12px; font-weight: 800; letter-spacing: 3px; color: #19d3da;
+    animation: pendPulse 0.8s ease-in-out infinite alternate;
+  }
+  .modeCards { display: flex; flex-direction: column; gap: 12px; margin-top: 22px; width: min(430px, 92vw); }
+  .modeCard {
+    pointer-events: auto; cursor: pointer; text-align: left; font-family: inherit;
+    background: rgba(7,38,30,0.85); border: 1.5px solid rgba(25,240,160,0.55); border-radius: 14px;
+    padding: 14px 18px; color: #dfe7e2;
+  }
+  .mcName { display: block; font-size: 21px; font-weight: 900; letter-spacing: 1.5px; color: #19f0a0; }
+  .mcDesc { display: block; margin-top: 4px; font-size: 13.5px; line-height: 1.45; color: #cfe0d7; }
+  .mcBest { display: block; margin-top: 7px; font-size: 12px; font-weight: 800; letter-spacing: 1px; color: #ffc44d; min-height: 15px; }
+  .menuRow { display: flex; gap: 12px; margin-top: 16px; }
+  .menuRow .bigBtn { margin-top: 0; padding: 12px 22px; font-size: 15px; }
+
+  #howtoPanel {
+    position: absolute; z-index: 21; top: calc(8px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+    width: 330px; max-width: 92vw; max-height: 88%; overflow-y: auto;
+    background: rgba(7,38,30,0.96); border: 1px solid rgba(25,240,160,0.5); border-radius: 12px;
+    padding: 12px 16px; display: none; text-align: left;
+  }
+  #howtoPanel.open { display: block; }
+  #howtoPanel h3 { margin: 0 0 4px; font-size: 14px; letter-spacing: 1.5px; color: #19f0a0; }
+  .hsec h4 { margin: 12px 0 3px; font-size: 12px; letter-spacing: 2px; color: #19f0a0; }
+  .hsec p { margin: 0; font-size: 13.5px; line-height: 1.5; color: #cfe0d7; }
+  .hmode { margin: 10px 0 0; font-size: 13px; line-height: 1.5; color: #93c7b2; }
+  #howtoClose { width: 100%; padding: 10px; font-size: 14px; margin-top: 14px; }
+
+  #pauseBtn {
+    position: absolute; z-index: 6; top: calc(76px + env(safe-area-inset-top)); right: 14px;
+    width: 48px; height: 48px; border-radius: 50%;
+    border: 2px solid rgba(25,240,160,0.55); background: rgba(10,16,13,0.55);
+    color: #19f0a0; font-size: 14px; font-weight: 900; letter-spacing: 1px;
+    display: none; align-items: center; justify-content: center; pointer-events: auto; cursor: pointer;
+  }
+  #pauseScreen { display: none; }
+  #pauseTitle { font-size: 34px; font-weight: 900; letter-spacing: 3px; color: #eafff5; }
+  #pauseScreen .bigBtn { margin-top: 14px; padding: 13px 34px; font-size: 17px; }
+
+  #countdown {
+    position: absolute; z-index: 12; top: 32%; left: 50%; transform: translateX(-50%);
+    font-size: 92px; font-weight: 900; letter-spacing: 2px; color: #19f0a0;
+    text-shadow: 0 4px 24px rgba(0,0,0,0.8); display: none; pointer-events: none;
+  }
+
+  #tallyScore { margin-top: 10px; font-size: 56px; font-weight: 900; letter-spacing: 1px; color: #eafff5; line-height: 1; }
+  #tallyScore.gold { color: #ffc44d; text-shadow: 0 3px 18px rgba(255,196,77,0.35); }
+  #tallyNewBest {
+    display: none; margin-top: 12px; font-size: 13px; font-weight: 900; letter-spacing: 3px;
+    color: #06231a; background: #ffc44d; padding: 4px 12px; border-radius: 6px;
+  }
+  #tallySummary { margin-top: 12px; font-size: 15px; font-weight: 700; color: #93c7b2; min-height: 20px; }
+  #menuBtn { margin-top: 14px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #pending.pulse, #clock.final, #loadingLine { animation: none; }
+  }
 </style>
 </head>
 <body>
@@ -188,6 +248,8 @@
   <div id="tuneHot"></div>
   <div id="rotateHint">ROTATE FOR THE FULL ROOM</div>
   <div id="pausedChip">PAUSED</div>
+  <div id="pauseBtn">&#10074;&#10074;</div>
+  <div id="countdown"></div>
 
   <div id="tunePanel">
     <h3>FEEL TUNING</h3>
@@ -214,14 +276,36 @@
     <button class="bigBtn" id="settingsClose">DONE</button>
   </div>
 
+  <div id="howtoPanel">
+    <h3>HOW TO PLAY</h3>
+    <div class="hsec"><h4>DRIVE</h4><p>Drag on the left side of the screen to steer. The car accelerates on its own. Hold the lower right side to brake, and keep holding at a standstill to reverse. The HB button is a handbrake for tight turns.</p></div>
+    <div class="hsec"><h4>FLY</h4><p>The moment you leave the ground, that same drag becomes a flight stick. Drag down for a backflip, up for a front flip, sideways to roll, and diagonal for combos. Hold the right side to stabilize: your rotation settles, the car glides, and you can set it down level.</p></div>
+    <div class="hsec"><h4>SCORE</h4><p>Points stay pending while you are in the air and only bank when you land. Clean landings bank in full and grow the combo. A crash loses the whole air. Coins pay 250 each. Take off again within 3 seconds of landing to keep the combo alive.</p></div>
+    <p class="hmode">SCORE ATTACK: one three minute run. Beat your best score, combo, and coin count.</p>
+    <p class="hmode">HEAT LADDER: five heats with rising targets. The rim opens at Heat 2, the deck at Heat 3, and from Heat 3 coins also buy you time.</p>
+    <button class="bigBtn" id="howtoClose">DONE</button>
+  </div>
+
   <div class="screen" id="startScreen">
     <h1>COIN<span class="jade">FLIP</span></h1>
-    <div class="tag">PILOT</div>
-    <div class="howto">Drag on the left to steer. In the air, drag to flip and roll, and hold the right side to stabilize and set it down clean. Landings bank the points. Score Attack: three minutes, twenty-four coins, one room. Heat Ladder: five heats, rising targets, and the room unlocks as you climb.</div>
-    <div class="bests" id="startBests"></div>
-    <button class="bigBtn modeBtn" id="startBtn">SCORE ATTACK</button>
-    <button class="bigBtn modeBtn" id="ladderBtn">HEAT LADDER</button>
-    <button class="bigBtn" id="settingsBtn">SETTINGS</button>
+    <div class="tag">FULL BUILD</div>
+    <div id="loadingLine">LOADING</div>
+    <div class="modeCards">
+      <button class="modeCard" id="startBtn">
+        <span class="mcName">SCORE ATTACK</span>
+        <span class="mcDesc">Three minutes, twenty-four coins, one room. Bank the biggest number you can.</span>
+        <span class="mcBest" id="attackBest"></span>
+      </button>
+      <button class="modeCard" id="ladderBtn">
+        <span class="mcName">HEAT LADDER</span>
+        <span class="mcDesc">Five heats, rising targets. The room unlocks as you climb.</span>
+        <span class="mcBest" id="ladderBest"></span>
+      </button>
+    </div>
+    <div class="menuRow">
+      <button class="bigBtn ghostBtn" id="howtoBtn">HOW TO PLAY</button>
+      <button class="bigBtn ghostBtn" id="settingsBtn">SETTINGS</button>
+    </div>
   </div>
 
   <div class="screen" id="breatherScreen">
@@ -232,9 +316,21 @@
 
   <div class="screen" id="tallyScreen">
     <div id="tallyTitle">TIME</div>
+    <div id="tallyNewBest">NEW BEST</div>
+    <div id="tallyScore">0</div>
     <div id="tallyRows"></div>
+    <div id="tallySummary"></div>
     <div class="bests" id="tallyBests"></div>
-    <button class="bigBtn" id="againBtn">RUN IT AGAIN</button>
+    <button class="bigBtn" id="againBtn">RUN AGAIN</button>
+    <button class="bigBtn ghostBtn" id="menuBtn">CHANGE MODE</button>
+  </div>
+
+  <div class="screen" id="pauseScreen">
+    <div id="pauseTitle">PAUSED</div>
+    <button class="bigBtn" id="resumeBtn">RESUME</button>
+    <button class="bigBtn ghostBtn" id="restartBtn">RESTART RUN</button>
+    <button class="bigBtn ghostBtn" id="pauseSettingsBtn">SETTINGS</button>
+    <button class="bigBtn ghostBtn" id="quitBtn">QUIT TO MENU</button>
   </div>
 </div>
 
@@ -1106,6 +1202,15 @@ global.CF = {
 'use strict';
 var CF = window.CF;
 
+/* If the Three.js CDN failed or is still blocked, say so on the start
+   screen instead of throwing into a dead page. */
+if (typeof THREE === 'undefined') {
+  var ll = document.getElementById('loadingLine');
+  if (ll) ll.textContent = 'COULD NOT LOAD THE 3D ENGINE. CHECK YOUR CONNECTION AND RELOAD.';
+  return;
+}
+var reducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
 /* ---------- renderer / scene ---------- */
 var container = document.getElementById('gl');
 var renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -1503,22 +1608,21 @@ var bests = { score: 0, combo: 0, coins: 0 };
   var c = parseFloat(localStorage.getItem('cf-best-combo') || '0');
   var n = parseInt(localStorage.getItem('cf-best-coins') || '0', 10);
   if (!isNaN(s)) bests.score = s; if (!isNaN(c)) bests.combo = c; if (!isNaN(n)) bests.coins = n;
-  if (bests.score > 0) {
-    document.getElementById('startBests').textContent =
-      'BEST ' + bests.score.toLocaleString() + ' · COMBO x' + bests.combo.toFixed(1) + ' · COINS ' + bests.coins + '/24';
-  }
 })();
 var ladderBests = { heat: 0, score: 0 };
 (function loadLadderBests() {
   var h = parseInt(localStorage.getItem('cf-best-ladder-heat') || '0', 10);
   var s = parseInt(localStorage.getItem('cf-best-ladder-score') || '0', 10);
   if (!isNaN(h)) ladderBests.heat = h; if (!isNaN(s)) ladderBests.score = s;
-  if (ladderBests.heat > 0) {
-    var elB = document.getElementById('startBests');
-    elB.textContent = (elB.textContent ? elB.textContent + '  ·  ' : '') +
-      'LADDER BEST · HEAT ' + ladderBests.heat + ' · ' + ladderBests.score.toLocaleString();
-  }
 })();
+function syncMenuBests() {
+  var a = document.getElementById('attackBest'), l = document.getElementById('ladderBest');
+  if (a) a.textContent = bests.score > 0 ?
+    'BEST ' + bests.score.toLocaleString() + ' · COMBO x' + bests.combo.toFixed(1) + ' · COINS ' + bests.coins + '/24' : 'NO RUNS YET';
+  if (l) l.textContent = ladderBests.heat > 0 ?
+    'BEST · HEAT ' + ladderBests.heat + ' · ' + ladderBests.score.toLocaleString() : 'NO RUNS YET';
+}
+syncMenuBests();
 
 /* ---------- input: multi-touch drag + brake/stabilize, keyboard fallback ---------- */
 var leftPtr = null, rightPtr = null, hbOn = false, tapQueued = false;
@@ -1613,6 +1717,7 @@ function drainEvents() {
     var ev = evs[i];
     CFAudio.event(ev, game);
     if (ev.type === 'landed') {
+      if (ev.band === 'clean') runStats.clean++;
       if (ev.band === 'crash') { showBanner('CRASH', 'bad', 1200); buzz([50, 40, 80]); }
       else if (ev.banked > 0) {
         showBanner((ev.band === 'clean' ? 'CLEAN +' : 'SKETCHY +') + ev.banked.toLocaleString(), ev.band === 'clean' ? '' : 'small', 1100);
@@ -1647,12 +1752,23 @@ function setHeatFog(heat) {
   }
 }
 function onRunOver(ev) {
+  document.getElementById('pauseBtn').style.display = 'none';
+  document.getElementById('pauseScreen').style.display = 'none';
+  menuPaused = false;
+  var summary = runStats.clean + (runStats.clean === 1 ? ' clean landing' : ' clean landings') +
+    ' · best chain x' + ev.bestCombo.toFixed(1);
+  document.getElementById('tallySummary').textContent = summary;
+  var scoreEl = document.getElementById('tallyScore');
+  var nbEl = document.getElementById('tallyNewBest');
   if (ev.mode === 'ladder') {
+    var ladBest = ev.score > ladderBests.score || ev.heat > ladderBests.heat;
     if (ev.heat > ladderBests.heat) { ladderBests.heat = ev.heat; try { localStorage.setItem('cf-best-ladder-heat', String(ev.heat)); } catch (e) {} }
     if (ev.score > ladderBests.score) { ladderBests.score = ev.score; try { localStorage.setItem('cf-best-ladder-score', String(ev.score)); } catch (e) {} }
     document.getElementById('tallyTitle').textContent = 'HEAT ' + ev.heat + ' REACHED';
+    nbEl.style.display = ladBest ? 'block' : 'none';
+    scoreEl.textContent = ev.score.toLocaleString();
+    scoreEl.className = ladBest ? 'gold' : '';
     document.getElementById('tallyRows').innerHTML =
-      'TOTAL SCORE <b>' + ev.score.toLocaleString() + '</b><br>' +
       'BEST COMBO <b>x' + ev.bestCombo.toFixed(1) + '</b><br>' +
       'BIGGEST STUNT <b>' + ev.biggest.toLocaleString() + '</b><br>' +
       'COINS <b>' + ev.coins + '/24</b>';
@@ -1660,21 +1776,25 @@ function onRunOver(ev) {
       'LADDER BEST · HEAT ' + ladderBests.heat + ' · SCORE ' + ladderBests.score.toLocaleString();
     document.getElementById('tallyScreen').style.display = 'flex';
     setHeatFog(0);
+    syncMenuBests();
     return;
   }
   var isBest = ev.score > bests.score;
   if (isBest) { bests.score = ev.score; try { localStorage.setItem('cf-best-score', String(ev.score)); } catch (e) {} }
   if (ev.bestCombo > bests.combo) { bests.combo = ev.bestCombo; try { localStorage.setItem('cf-best-combo', String(ev.bestCombo)); } catch (e) {} }
   if (ev.coins > bests.coins) { bests.coins = ev.coins; try { localStorage.setItem('cf-best-coins', String(ev.coins)); } catch (e) {} }
-  document.getElementById('tallyTitle').textContent = isBest ? 'NEW BEST' : 'TIME';
+  document.getElementById('tallyTitle').textContent = 'TIME';
+  nbEl.style.display = isBest ? 'block' : 'none';
+  scoreEl.textContent = ev.score.toLocaleString();
+  scoreEl.className = isBest ? 'gold' : '';
   document.getElementById('tallyRows').innerHTML =
-    'SCORE <b>' + ev.score.toLocaleString() + '</b><br>' +
     'BEST COMBO <b>x' + ev.bestCombo.toFixed(1) + '</b><br>' +
     'BIGGEST STUNT <b>' + ev.biggest.toLocaleString() + '</b><br>' +
     'COINS <b>' + ev.coins + '/24</b>';
   document.getElementById('tallyBests').textContent =
     'BEST ' + bests.score.toLocaleString() + ' · COMBO x' + bests.combo.toFixed(1) + ' · COINS ' + bests.coins + '/24';
   document.getElementById('tallyScreen').style.display = 'flex';
+  syncMenuBests();
 }
 function updateHUD() {
   var st = game.scoring.state, car = game.car;
@@ -1712,30 +1832,74 @@ function updateHUD() {
   } else { el.comboMult.textContent = ''; el.fuse.style.width = '0%'; }
 }
 
-/* ---------- screens ---------- */
+/* ---------- screens, countdown, pause ---------- */
 var currentMode = 'attack';
+var runStats = { clean: 0 };
+var countdown = 0, goUntil = 0, menuPaused = false;
+var cdEl = document.getElementById('countdown');
 function startRun(mode) {
   currentMode = mode;
   document.getElementById('startScreen').style.display = 'none';
   document.getElementById('tallyScreen').style.display = 'none';
+  document.getElementById('pauseScreen').style.display = 'none';
   document.getElementById('settingsPanel').classList.remove('open');
+  document.getElementById('howtoPanel').classList.remove('open');
+  menuPaused = false;
+  runStats.clean = 0;
   final10Shown = false;
   setHeatFog(0);
   var seed = settings.shuffle ? (Date.now() % 2147483646) + 1 : 1;
   game.reset({ mode: mode, shuffle: settings.shuffle, seed: seed });
+  document.getElementById('pauseBtn').style.display = 'flex';
+  countdown = 3; goUntil = 0;
+  cdEl.textContent = '3'; cdEl.style.display = 'block';
   CFAudio.startRun();   /* the start tap is the gesture that unlocks audio */
 }
 document.getElementById('startBtn').addEventListener('click', function () { startRun('attack'); });
 document.getElementById('ladderBtn').addEventListener('click', function () { startRun('ladder'); });
 document.getElementById('againBtn').addEventListener('click', function () { startRun(currentMode); });
+document.getElementById('menuBtn').addEventListener('click', quitToMenu);
+document.getElementById('howtoBtn').addEventListener('click', function () { document.getElementById('howtoPanel').classList.add('open'); });
+document.getElementById('howtoClose').addEventListener('click', function () { document.getElementById('howtoPanel').classList.remove('open'); });
+
+function setMenuPaused(on) {
+  if (!game.started || game.over) return;
+  menuPaused = on;
+  document.getElementById('pauseScreen').style.display = on ? 'flex' : 'none';
+  if (on) CFAudio.visibility(true);              /* music pauses with the run */
+  else if (!document.hidden) CFAudio.visibility(false);
+}
+function quitToMenu() {
+  menuPaused = false;
+  countdown = 0; goUntil = 0; cdEl.style.display = 'none';
+  document.getElementById('pauseScreen').style.display = 'none';
+  document.getElementById('tallyScreen').style.display = 'none';
+  document.getElementById('pauseBtn').style.display = 'none';
+  document.getElementById('settingsPanel').classList.remove('open');
+  game.started = false; game.over = false;
+  setHeatFog(0);
+  CFAudio.visibility(true);                      /* suspend: no music at the menu */
+  syncMenuBests();
+  document.getElementById('startScreen').style.display = 'flex';
+}
+document.getElementById('pauseBtn').addEventListener('click', function () { setMenuPaused(true); });
+document.getElementById('resumeBtn').addEventListener('click', function () { setMenuPaused(false); });
+document.getElementById('restartBtn').addEventListener('click', function () { startRun(currentMode); });
+document.getElementById('pauseSettingsBtn').addEventListener('click', function () { document.getElementById('settingsPanel').classList.add('open'); });
+document.getElementById('quitBtn').addEventListener('click', quitToMenu);
+window.addEventListener('keydown', function (e) {
+  if ((e.code === 'Escape' || e.code === 'KeyP') && game.started && !game.over) setMenuPaused(!menuPaused);
+});
 applySettings();
+document.getElementById('loadingLine').style.display = 'none';
 
 /* ---------- pause on tab-hide ---------- */
 var paused = false;
 document.addEventListener('visibilitychange', function () {
   paused = document.hidden;
   document.getElementById('pausedChip').style.display = paused ? 'block' : 'none';
-  CFAudio.visibility(document.hidden);
+  if (document.hidden) CFAudio.visibility(true);
+  else if (game.started && !menuPaused) CFAudio.visibility(false);
 });
 
 /* ---------- camera ---------- */
@@ -1747,9 +1911,13 @@ function lerpAngle(a, b, t) {
 function updateCamera(dt) {
   var car = game.car;
   if (!game.started) {
-    orbitT += dt;
-    camera.position.set(Math.sin(orbitT * 0.06) * 46, 18, Math.cos(orbitT * 0.06) * 46);
-    camera.lookAt(0, 3, 0);
+    /* Attract orbit: a slow, steady circle at rim height looking across
+       the Crown toward the deck. No roll, ever. Reduced motion freezes
+       it to a static wide shot. */
+    if (!reducedMotion) orbitT += dt;
+    camera.position.set(Math.sin(orbitT * 0.045) * 50, 11, Math.cos(orbitT * 0.045) * 50);
+    camera.up.set(0, 1, 0);
+    camera.lookAt(0, 3, -8);
     if (Math.abs(camera.fov - 55) > 0.1) { camera.fov += (55 - camera.fov) * 0.05; camera.updateProjectionMatrix(); }
     return;
   }
@@ -1786,7 +1954,12 @@ var last = performance.now(), acc = 0, STEP = 1 / 120;
 function frame(nowMs) {
   requestAnimationFrame(frame);
   var dt = Math.min(0.05, (nowMs - last) / 1000); last = nowMs;
-  if (!paused && game.started && !document.hidden) {
+  if (countdown > 0) {
+    countdown -= dt;
+    if (countdown > 0) { cdEl.textContent = String(Math.ceil(countdown)); cdEl.style.display = 'block'; }
+    else { countdown = 0; cdEl.textContent = 'GO'; goUntil = nowMs + 700; }
+  } else if (goUntil && nowMs > goUntil) { goUntil = 0; cdEl.style.display = 'none'; }
+  if (!paused && !menuPaused && countdown <= 0 && game.started && !document.hidden) {
     var input = buildInput();
     acc += dt;
     var n = 0;
@@ -1800,7 +1973,9 @@ function frame(nowMs) {
   var car = game.car;
   carGroup.position.set(car.x, car.y - 0.35, car.z);
   carGroup.quaternion.set(car.q[0], car.q[1], car.q[2], car.q[3]);
-  wingT += ((car.wings ? 1 : 0) - wingT) * (1 - Math.exp(-dt * 6));
+  var wingTarget = car.wings ? 1 : 0;
+  if (!game.started) wingTarget = reducedMotion ? 1 : 0.5 + 0.5 * Math.sin(nowMs * 0.00045); // attract: wings breathe on the pad
+  wingT += (wingTarget - wingT) * (1 - Math.exp(-dt * (game.started ? 6 : 1.5)));
   var ws = 0.05 + 0.95 * Math.max(0, wingT);
   wingL.scale.x = ws; wingR.scale.x = ws;
   if (car.mode === 'ground') {
