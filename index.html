@@ -309,7 +309,7 @@
   <div id="howtoPanel">
     <h3>HOW TO PLAY</h3>
     <div class="hsec"><h4>DRIVE</h4><p>Drag on the left side of the screen to steer. The car accelerates on its own. Hold the lower right side to brake, and keep holding at a standstill to reverse. The HB button is a handbrake for tight turns.</p></div>
-    <div class="hsec"><h4>FLY</h4><p>The moment you leave the ground, that same drag becomes a flight stick. Drag down for a backflip, up for a front flip, sideways to roll, and diagonal for combos. Hold the right side to stabilize: your rotation settles, the car glides, and you can set it down level.</p></div>
+    <div class="hsec"><h4>FLY</h4><p>The moment you leave the ground, that same drag becomes a flight stick. Drag down for a backflip, up for a front flip, sideways to steer your flight and curve your path through the air, and diagonal to steer and flip together. Hold the right side to stabilize: your rotation settles, the car glides, and you can set it down level.</p></div>
     <div class="hsec"><h4>SCORE</h4><p>Points stay pending while you are in the air and only bank when you land. Clean landings bank in full and grow the combo. A bad landing loses the whole air, but the car always rights itself and keeps rolling. Nothing stops you. Coins pay 250 each. Take off again within 3 seconds of landing to keep the combo alive.</p></div>
     <p class="hmode">RAMP UP: climb the endless ramp. It narrows as it goes, the kickers get ideas, and there is nothing off the edges but the long way down. The gold line across the ramp is your best distance. How far can you get?</p>
     <p class="hmode">RAMP DOWN: start at the top, 500 metres up, and let gravity do the rest. Terminal velocity up here is not the polite kind.</p>
@@ -372,7 +372,8 @@ var TUNE_DEFAULTS = {
   gravity: 18,        // m/s^2, George's call (Stage B2): soar higher, float longer
   pitchRate: 5.7,     // rad/s at full input, full flip in ~1.1s (Scale Pass: slowed for the long airs)
   rollRate: 5.7,      // rad/s at full input
-  twistRate: 4.6,     // rad/s for corkscrew yaw
+  airSteerRate: 1.85, // rad/s: air steering, seeded from the ground steering rate (stepGround) so the car steers in the air as it does on the ground
+  twistRate: 4.6,     // rad/s for corkscrew yaw (legacy: corkscrew entry retired with air roll, see stepAir)
   stabilize: 5,       // 0..10 panel scale, mapped internally
   cleanAngle: 12,     // degrees off level vs surface for a CLEAN landing
   badAngle: 30,       // degrees; beyond this the landing is BAD (no crash state: the car always keeps going)
@@ -1067,9 +1068,8 @@ function createGame(tune) {
     if (car.airTime > 0.25) car.wings = true;
     var auth = car.wings ? 1 : 0.34; // wingless tumble has a third of the authority
     var tWx = input.airPitch * tune.pitchRate * auth;
-    var tWz = -input.airRoll * tune.rollRate * auth;
+    var tWz = 0; // left/right no longer rolls the car: it steers (see below)
     var tWy = 0;
-    if (car.corkscrew && Math.abs(input.airRoll) >= 0.95) { tWy = input.airRoll * tune.twistRate * auth; tWz = 0; }
     var k = 1 - Math.exp(-dt / 0.12); // angular rate spin-up, Sasha's 0.12s
     car.wx += (tWx - car.wx) * k; car.wy += (tWy - car.wy) * k; car.wz += (tWz - car.wz) * k;
     if (input.stabilize) {
@@ -1083,7 +1083,36 @@ function createGame(tune) {
     car.q = qNorm([car.q[0] + 0.5 * dt * dq[0], car.q[1] + 0.5 * dt * dq[1],
                    car.q[2] + 0.5 * dt * dq[2], car.q[3] + 0.5 * dt * dq[3]]);
     car.accPitch += car.wx * dt; car.accRoll += car.wz * dt; car.accYaw += car.wy * dt;
-    if (!car.corkscrew && Math.abs(input.airRoll) >= 0.95 && Math.abs(car.accRoll) >= Math.PI * 2) car.corkscrew = true;
+    /* Air steering (George's call): left/right steers in the air exactly
+       as it does on the ground. input.steer turns car.heading at the
+       ground model's rate (airSteerRate, seeded from the ground 1.85
+       rad/s, with the same speed softening; authority comes from plan
+       speed the way ground authority comes from car.speed), and the
+       horizontal velocity rotates by the same angle each step, so travel
+       follows the heading the way ground travel does: horizontal speed
+       magnitude is preserved and vy is untouched. The orientation yaws
+       with the heading (a world-Y premultiply), so land() derives this
+       same heading on touchdown. The yaw is applied directly, never
+       through wy, so it cannot count toward twist tricks; and with wz
+       starved above, accRoll can no longer accumulate from input, so
+       the corkscrew entry that keyed off a full input roll is retired:
+       car.corkscrew stays false and twist tricks can no longer be
+       entered. Pitch input is unchanged. */
+    var steerIn = (typeof input.steer === 'number') ? input.steer : (input.airRoll || 0);
+    if (steerIn) {
+      var planSpd = Math.sqrt(car.vx * car.vx + car.vz * car.vz);
+      var sAuth = clamp(planSpd / 40, 0, 1);
+      var sSoft = 1 - 0.45 * clamp((planSpd - 34) / 102, 0, 1);
+      var dH = -steerIn * tune.airSteerRate * sSoft * sAuth * dt;
+      if (dH) {
+        car.heading += dH;
+        var caS = Math.cos(dH), saS = Math.sin(dH);
+        var nvx = car.vx * caS + car.vz * saS;
+        var nvz = car.vz * caS - car.vx * saS;
+        car.vx = nvx; car.vz = nvz;
+        car.q = qNorm(qMul([0, Math.sin(dH / 2), 0, Math.cos(dH / 2)], car.q));
+      }
+    }
     var gEff = tune.gravity * (input.stabilize ? 0.75 : 1); // stabilize glides: falls ~25% slower
     car.vy -= gEff * dt;
     if (input.stabilize) { var dr = Math.max(0, 1 - 0.08 * dt); car.vx *= dr; car.vz *= dr; }
@@ -1851,11 +1880,12 @@ function buildInput() {
   if (settings.controls === 'buttons') {
     var bs = (steerBtn.r ? 1 : 0) - (steerBtn.l ? 1 : 0);
     input.steer = bs;
-    input.airRoll = bs; // in the air the buttons become roll; pitch stays on the drag vector (Pete)
+    input.airRoll = bs; // the buttons steer on the ground and in the air alike; pitch stays on the drag vector (Pete)
   }
   if (settings.gyro && gyro.ok && car.mode === 'air') {
     input.airPitch = CF.clamp(input.airPitch + gyro.pitch, -1, 1);
     input.airRoll = CF.clamp(input.airRoll + gyro.roll, -1, 1);
+    input.steer = CF.clamp(input.steer + gyro.roll, -1, 1); // gyro tilt steers the flight, same as every other input source
   }
   if (keys.ArrowRight) { input.steer += 1; input.airRoll += 1; }
   if (keys.ArrowLeft) { input.steer -= 1; input.airRoll -= 1; }
