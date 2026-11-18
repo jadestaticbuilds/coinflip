@@ -313,7 +313,7 @@
     <div class="hsec"><h4>SCORE</h4><p>Points stay pending while you are in the air and only bank when you land. Clean landings bank in full and grow the combo. A bad landing loses the whole air, but the car always rights itself and keeps rolling. Nothing stops you. Coins pay 250 each. Take off again within 3 seconds of landing to keep the combo alive.</p></div>
     <p class="hmode">RAMP UP: climb the endless ramp. It narrows as it goes, the kickers get ideas, and there is nothing off the edges but the long way down. The gold line across the ramp is your best distance. How far can you get?</p>
     <p class="hmode">RAMP DOWN: start at the top, 500 metres up, and let gravity do the rest. Terminal velocity up here is not the polite kind.</p>
-    <p class="hmode">CROSSING: the two ramps run side by side, and the gap between them is jumpable. Some kickers are angled to throw you across. Landing on the other ramp is legal, encouraged, and glorious: distance banks on both ramps, and the run total is the sum.</p>
+    <p class="hmode">CROSSING: the two ramps run side by side, and the gap between them is jumpable. Every kicker leans, left or right, and throws you off your line: steer in the air to take the line back, or ride the throw across the gap. Landing on the other ramp is legal, encouraged, and glorious: distance banks on both ramps, and the run total is the sum. And being thrown off is not the end: while you can still fly back to a ramp, the run lives.</p>
     <button class="bigBtn" id="howtoClose">DONE</button>
   </div>
 
@@ -373,6 +373,8 @@ var TUNE_DEFAULTS = {
   pitchRate: 5.7,     // rad/s at full input, full flip in ~1.1s (Scale Pass: slowed for the long airs)
   rollRate: 5.7,      // rad/s at full input
   airSteerRate: 1.85, // rad/s: air steering, seeded from the ground steering rate (stepGround) so the car steers in the air as it does on the ground
+  kickLeanMin: 0.13,  // kicker lean band (Deviation Pass): every kicker leans by a seeded per-kicker
+  kickLeanMax: 0.27,  // amount in this range, random sign; the lean is the throw (see rampKickerH)
   twistRate: 4.6,     // rad/s for corkscrew yaw (legacy: corkscrew entry retired with air roll, see stepAir)
   stabilize: 5,       // 0..10 panel scale, mapped internally
   cleanAngle: 12,     // degrees off level vs surface for a CLEAN landing
@@ -613,34 +615,50 @@ var RAMP_CROSS_S = (function () {
   while (acc < 0 && s < 100000) { acc += (rampGradeUpTan(s + 5) - rampGradeDownTan(s + 5)) * 10; s += 10; }
   return s;
 })();
-/* Kickers: smooth raised-cosine humps on the centreline every ~620 to
-   880 m, seeded per ribbon. Every third kicker is angled about 8 degrees
-   toward the other ribbon (its long axis is rotated in the evaluation
-   frame), so its exit tangent throws the car across the gap: that is
-   the BeamNG fun, built into the road. (The old climb searched each
-   nominal position forward for the calmest curvature; the ribbons are
-   straight now, every window is calm, and the nominal positions stand.) */
-var RAMP_KICK_LEN = 30, RAMP_KICK_H = 4, RAMP_KICK_HALF = 3.2, RAMP_KICK_TILT = 0.14;
+/* Kickers (Deviation Pass, George's call): EVERY kicker deviates, and
+   a lot more than the old one-in-three 8-degree nudge (which measured
+   ~1.4 degrees of liftoff offset, and exactly zero on the plain ones).
+   A kicker is now a smooth dome (raised cosine along its length, cos^2
+   across its width, no cliff edges for the face logic to snag on) with
+   a LEAN: one side of the dome is built higher than the other, so the
+   surface the car rides is banked and its exit tangent throws the car
+   sideways for the whole crossing, not just at one phase-sensitive
+   instant. The lean is drawn per kicker from the ribbon's seeded RNG:
+   magnitude inside the tune band (kickLeanMin..kickLeanMax), sign a
+   coin flip, so the player must read and correct every single flight
+   with the air steering. The lean is physical and visible in the mesh
+   (the mesh samples this same formula): the high side is the side the
+   car is thrown toward. Height went 4 -> 8 m because on the DOWN
+   ribbon's steep fast descent a 4 m dome is skimmed ballistically and
+   separates at its crest, where the face slope cancels the grade and
+   no lean can bite; the 8 m face is steeper than the grade, so the car
+   separates with the lean still in its velocity (and DOWN finally gets
+   real launches instead of skims). Kickers sit every ~620 to 880 m,
+   seeded per ribbon. (The old climb searched each nominal position
+   forward for the calmest curvature; the ribbons are straight now,
+   every window is calm, and the nominal positions stand.) */
+var RAMP_KICK_LEN = 30, RAMP_KICK_H = 8, RAMP_KICK_HALF = 5.5;
+var RAMP_KICK_LEAN_MIN = TUNE_DEFAULTS.kickLeanMin, RAMP_KICK_LEAN_MAX = TUNE_DEFAULTS.kickLeanMax;
 function rampKickExtend(R, uptoS) {
   while (!R.kickStarts.length || R.kickStarts[R.kickStarts.length - 1] < uptoS) {
     var nominal = R.kickStarts.length ?
       R.kickStarts[R.kickStarts.length - 1] + 620 + 260 * R.kickRng() : 780;
     R.kickStarts.push(nominal);
+    var mag = RAMP_KICK_LEAN_MIN + R.kickRng() * (RAMP_KICK_LEAN_MAX - RAMP_KICK_LEAN_MIN);
+    R.kickLean.push((R.kickRng() < 0.5 ? -1 : 1) * mag);
   }
 }
 function rampKickerH(R, s, lat) {
-  if (Math.abs(lat) > RAMP_KICK_HALF + 2.5 || s < 700) return 0; // an angled hump's rotated footprint reaches ~5.3 m of lat
+  if (Math.abs(lat) > RAMP_KICK_HALF + 0.5 || s < 700) return 0; // the dome spans |lat| <= RAMP_KICK_HALF
   rampKickExtend(R, s);
   for (var i = R.kickStarts.length - 1; i >= 0 && R.kickStarts[i] > s - RAMP_KICK_LEN - 40; i--) {
     var ks = R.kickStarts[i];
-    var ds = s - (ks + RAMP_KICK_LEN / 2), dl = lat, u = ds, v = dl;
-    if (i % 3 === 2) { // angled toward the other ribbon
-      var ca = Math.cos(RAMP_KICK_TILT), sa = Math.sin(RAMP_KICK_TILT) * R.def.tilt;
-      u = ds * ca + dl * sa; v = -ds * sa + dl * ca;
-    }
+    var u = s - (ks + RAMP_KICK_LEN / 2), v = lat;
     if (u >= -RAMP_KICK_LEN / 2 && u <= RAMP_KICK_LEN / 2 && Math.abs(v) <= RAMP_KICK_HALF) {
       var t = (u + RAMP_KICK_LEN / 2) / RAMP_KICK_LEN;
-      return RAMP_KICK_H * 0.5 * (1 - Math.cos(2 * Math.PI * t));
+      var pu = 0.5 * (1 - Math.cos(2 * Math.PI * t));
+      var pv = Math.cos(Math.PI * v / (2 * RAMP_KICK_HALF)); pv = pv * pv;
+      return pu * pv * (RAMP_KICK_H + R.kickLean[i] * v);
     }
   }
   return 0;
@@ -659,10 +677,10 @@ function rampNextKicker(R, s) {
    which makes projection analytic and exact. */
 function makeRibbon(def) {
   return { def: def, x: [def.x0], z: [0], h: [def.h0], base: 0,
-           ih: def.h0, is: 0, kickStarts: [], kickRng: mulberry32(def.kickSeed) };
+           ih: def.h0, is: 0, kickStarts: [], kickLean: [], kickRng: mulberry32(def.kickSeed) };
 }
-var RAMP_UP_DEF = { id: 'up', x0: 0, h0: 0, gradeTan: rampGradeUpTan, widthAt: rampWidthUp, kickSeed: 1337, tilt: -1 };
-var RAMP_DOWN_DEF = { id: 'down', x0: RAMP_GAP_X, h0: RAMP_TOP_H, gradeTan: rampGradeDownTan, widthAt: rampWidthDown, kickSeed: 7331, tilt: 1 };
+var RAMP_UP_DEF = { id: 'up', x0: 0, h0: 0, gradeTan: rampGradeUpTan, widthAt: rampWidthUp, kickSeed: 1337 };
+var RAMP_DOWN_DEF = { id: 'down', x0: RAMP_GAP_X, h0: RAMP_TOP_H, gradeTan: rampGradeDownTan, widthAt: rampWidthDown, kickSeed: 7331 };
 var RB = { up: null, down: null };
 var rampFallVoid = false;
 function rampResetGen() {
@@ -763,6 +781,11 @@ function tangentVelocity(s, heading, speed) {
   return v3(f.x / l * speed, f.y / l * speed, f.z / l * speed);
 }
 function createGame(tune) {
+  /* The kicker lean band lives in the tune (the one adjustable place);
+     the world generator is module-level, so each game hands its band
+     down before its ribbons (re)generate. Kicker leans already drawn
+     keep their values; the band governs every draw from here on. */
+  RAMP_KICK_LEAN_MIN = tune.kickLeanMin; RAMP_KICK_LEAN_MAX = tune.kickLeanMax;
   var scoring = createScoring(tune);
   var clock = createRunClock(1e9); // no clock pressure in the ramp game: the fall is the opponent
   var car = { x: 0, y: 0, z: 0, heading: Math.PI, speed: 0, vx: 0, vy: 0, vz: 0,
@@ -801,6 +824,7 @@ function createGame(tune) {
     g.coins = coins;
     g.coinsCollected = 0; g.events = []; g.now = 0; g.over = false; g.started = true;
     clock = createRunClock(1e9); g.clock = clock;
+    RAMP_KICK_LEAN_MIN = tune.kickLeanMin; RAMP_KICK_LEAN_MAX = tune.kickLeanMax;
     rampResetGen();
     rampEnsureAll(1800);
     g.ramp = { start: g.mode, cur: g.mode, upProg: 0, downProg: 0, total: 0, height: 0,
@@ -1188,6 +1212,49 @@ function createGame(tune) {
     return out <= 6 + toward * tFall;
   }
 
+  /* Steering-aware reachability (Deviation Pass, George's call): the
+     cheap test above only credits the lateral velocity the car already
+     has, so a car thrown off the DOWN ribbon with its velocity pointing
+     away was declared dead while it was still high, fast, and one held
+     steer away from a save. This projection asks the honest question:
+     flying this exact state forward under FULL air steering aimed at
+     the ribbon (velocity rotated toward a point on the centreline
+     ahead at the shipped steering rate, plan speed preserved, gravity
+     on vy), does the car reach the span (plus the 2 m banking skirt)
+     before it drops below the plane's 6 m graze floor? The model is
+     deliberately generous, because when in doubt the run must live:
+     full wings authority from the first instant, the kicker height
+     ignored (the target plane is the bare ribbon, which only lowers
+     it), a 15 s horizon, and no drag. It runs only on frames where the
+     cheap test already failed, so its cost is bounded and rare. */
+  function rampRecoverable(R) {
+    var planSpd = Math.sqrt(car.vx * car.vx + car.vz * car.vz);
+    if (planSpd < 1) return false;
+    var sSoft = 1 - 0.45 * clamp((planSpd - 34) / 102, 0, 1);
+    var om = tune.airSteerRate * sSoft; // rad/s at full steer, wings out
+    var px = car.x, pz = car.z, py = car.y - WHEEL, vy = car.vy;
+    var ang = Math.atan2(car.vx, car.vz);
+    var ahead = Math.max(30, planSpd * 0.35);
+    var dt = 0.08;
+    for (var t = 0; t < 15; t += dt) {
+      var des = Math.atan2(R.def.x0 - px, -ahead); // aim at the centreline point 'ahead' metres up-track
+      var da = des - ang;
+      while (da > Math.PI) da -= 2 * Math.PI;
+      while (da < -Math.PI) da += 2 * Math.PI;
+      var turn = clamp(da, -om * dt, om * dt);
+      ang += turn;
+      px += planSpd * Math.sin(ang) * dt;
+      pz += planSpd * Math.cos(ang) * dt;
+      vy -= tune.gravity * dt;
+      py += vy * dt;
+      var s = -pz;
+      var plane = rampPointAt(R, s).h;
+      if (py < plane - 6) return false; // below the graze floor: the top is unreachable from here
+      if (Math.abs(R.def.x0 - px) <= R.def.widthAt(s) / 2 + 2) return true;
+    }
+    return false;
+  }
+
   /* Ramp progress and the fall. Distance accounting, stated once: each
      ribbon banks its own maximum station for the run, and the run's
      distance is the SUM of the two banked maxima. A cross-jump therefore
@@ -1198,14 +1265,18 @@ function createGame(tune) {
      outside both spans, moving down, and no ribbon is still a live
      landing for it. A ribbon is a live landing while the car is not yet
      6 m under its extended plane AND can still reach its span: inside
-     the span, inside a 6 m skirt, or approaching fast enough laterally
-     to cross the remaining distance before gravity brings it down to
-     the plane (so a car dropping across the gap toward the other ribbon
-     far below keeps its landing, while a car dribbling off an edge with
-     no lateral speed falls at once). Any car 25 m under both planes has
-     fallen by any path. Once called, every ramp surface voids
-     (rampFallVoid) and 2.4 s of falling ends the run with the car frozen
-     in the 'fallen' mode. */
+     the span, inside a 6 m skirt, approaching fast enough laterally to
+     cross the remaining distance before gravity brings it down to the
+     plane (so a car dropping across the gap toward the other ribbon
+     far below keeps its landing), OR reachable under full air steering
+     per the rampRecoverable projection: off the track is not the end
+     while the player can still fly back to it (Deviation Pass). The
+     old rule also fired whenever either plane sat 6 m above the car,
+     which killed DOWN runs for the crime of being below the UP ribbon:
+     that clause is gone. Any car 25 m under both planes has fallen by
+     any path. Once called, every ramp surface voids (rampFallVoid) and
+     2.4 s of falling ends the run with the car frozen in the 'fallen'
+     mode. */
   function rampUpdate(dt) {
     var rp = g.ramp;
     if (!rp) return;
@@ -1246,9 +1317,9 @@ function createGame(tune) {
       var hwU = RB.up.def.widthAt(fU.s) / 2, hwD = RB.down.def.widthAt(fD.s) / 2;
       var inU = Math.abs(fU.lat) <= hwU, inD = Math.abs(fD.lat) <= hwD;
       var pU = rampPlaneH(RB.up, fU), pD = rampPlaneH(RB.down, fD);
-      var liveU = rampLandable(RB.up, fU, pU, bottom);
-      var liveD = rampLandable(RB.down, fD, pD, bottom);
-      if ((!inU && !inD && car.vy < 0 && !liveU && !liveD && (pU - bottom > 6 || pD - bottom > 6)) ||
+      var liveU = rampLandable(RB.up, fU, pU, bottom) || rampRecoverable(RB.up);
+      var liveD = rampLandable(RB.down, fD, pD, bottom) || rampRecoverable(RB.down);
+      if ((!inU && !inD && car.vy < 0 && !liveU && !liveD) ||
           bottom < Math.min(pU, pD) - 25) {
         rp.falling = true; rp.fallT = 0;
         rampFallVoid = true;
